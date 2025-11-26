@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"
+    />
+    <meta name="theme-color" content="#2563eb" />
+    <title>随心书摘生成器</title>
+    <!-- Favicon -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%232563eb' d='M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'/%3E%3Cpath fill='%232563eb' d='M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'/%3E%3C/svg%3E"
+    />
+    <link
+      rel="alternate icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%232563eb' d='M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'/%3E%3Cpath fill='%232563eb' d='M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;700&family=Zhi+Mang+Xing&family=Long+Cang&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Right Sidebar: Controls - 颠覆性设计：右侧浮动面板 -->
+      <aside class="sidebar" id="sidebar">
+        <!-- 可拖动的分隔条 -->
+        <div class="sidebar-resizer" id="sidebar-resizer"></div>
+        <div class="sidebar-header">
+          <div class="logo">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+            <span>随心书斋</span>
+          </div>
+        </div>
+
+        <div class="controls-scroll">
+          <div class="control-group">
+            <label for="quote-text">摘录内容</label>
+            <textarea
+              id="quote-text"
+              name="quote-text"
+              placeholder="在这里输入你喜欢的文字..."
+              rows="5"
+              aria-label="摘录内容输入框"
+            >
+生活不可能像你想象得那么好，但也不会像你想象得那么糟。</textarea
+            >
+          </div>
+
+          <div class="control-row">
+            <div class="control-group half">
+              <label for="book-title">书名/出处</label>
+              <input
+                type="text"
+                id="book-title"
+                name="book-title"
+                value="羊脂球"
+                aria-label="书名或出处"
+              />
+            </div>
+            <div class="control-group half">
+              <label for="author-text">作者</label>
+              <input
+                type="text"
+                id="author-text"
+                name="author-text"
+                value="莫泊桑"
+                aria-label="作者姓名"
+              />
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label for="seal-text">印章落款 (最多4字)</label>
+            <input
+              type="text"
+              id="seal-text"
+              name="seal-text"
+              value="随心书斋"
+              maxlength="4"
+              aria-label="印章落款，最多4个字"
+            />
+          </div>
+
+          <!-- 卡片组 -->
+          <div class="control-section">
+            <div class="section-header">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              <span>卡片</span>
+            </div>
+            <div class="section-content">
+              <div class="control-group">
+                <div class="layout-select-group" role="radiogroup" aria-label="文字排列方式">
+                  <label class="layout-option">
+                    <input
+                      type="radio"
+                      name="layout"
+                      value="horizontal"
+                      checked
+                      aria-label="横排模式"
+                    />
+                    <span class="layout-option-icon">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                      </svg>
+                    </span>
+                  </label>
+                  <label class="layout-option">
+                    <input
+                      type="radio"
+                      name="layout"
+                      value="vertical"
+                      aria-label="竖排模式（古风）"
+                    />
+                    <span class="layout-option-icon">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M6 4v16M12 4v16M18 4v16"></path>
+                      </svg>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">背景</div>
+                <div class="theme-grid" id="theme-grid" role="group" aria-label="主题选择">
+                  <!-- Themes will be injected by JS -->
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>卡片宽度</span>
+                  <span class="width-value" id="card-width-value">400px</span>
+                </div>
+                <div class="width-slider-container">
+                  <input
+                    type="range"
+                    id="card-width-slider"
+                    min="300"
+                    max="600"
+                    step="30"
+                    value="400"
+                    aria-label="卡片宽度"
+                  />
+                  <div class="slider-labels">
+                    <span>300px</span>
+                    <span>600px</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 字体组 -->
+          <div class="control-section">
+            <div class="section-header">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M4 7V4h16v3"></path>
+                <path d="M5 20h6"></path>
+                <path d="M13 20h7"></path>
+                <path d="M5 16h6"></path>
+                <path d="M13 16h7"></path>
+                <path d="M5 12h6"></path>
+                <path d="M13 12h7"></path>
+                <path d="M5 8h6"></path>
+                <path d="M13 8h7"></path>
+              </svg>
+              <span>字体</span>
+            </div>
+            <div class="section-content">
+              <div class="control-group">
+                <div class="font-grid" id="font-grid" role="group" aria-label="字体选择">
+                  <!-- Fonts will be injected by JS -->
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">颜色</div>
+                <div class="color-grid" id="font-color-grid" role="group" aria-label="字体颜色选择">
+                  <!-- Font colors will be injected by JS -->
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>字号</span>
+                  <span class="width-value" id="font-size-value">18px</span>
+                </div>
+                <div class="width-slider-container">
+                  <input
+                    type="range"
+                    id="font-size-slider"
+                    min="14"
+                    max="32"
+                    step="2"
+                    value="18"
+                    aria-label="字号"
+                  />
+                  <div class="slider-labels">
+                    <span>14px</span>
+                    <span>32px</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <button
+            class="primary-btn save-btn"
+            id="download-btn"
+            type="button"
+            aria-label="保存并下载书摘卡片"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            保存
+          </button>
+        </div>
+      </aside>
+
+      <!-- Right Panel: Preview -->
+      <main class="preview-area" id="preview-area">
+        <div class="preview-wrapper" id="preview-wrapper">
+          <div id="card-preview" class="card theme-clean">
+            <div class="card-inner">
+              <div class="card-header">
+                <span class="date" id="current-date">2025.11.24</span>
+                <span class="tag">读书偶得</span>
+              </div>
+
+              <div class="card-body">
+                <div class="quote-mark start">“</div>
+                <div class="text-content" id="preview-text">
+                  生活不可能像你想象得那么好，但也不会像你想象得那么糟。
+                </div>
+                <div class="quote-mark end">”</div>
+              </div>
+
+              <div class="card-footer-info">
+                <div class="book-info">
+                  <div class="line"></div>
+                  <div class="meta">
+                    <span class="book" id="preview-book">羊脂球</span>
+                    <span class="author" id="preview-author">莫泊桑</span>
+                  </div>
+                </div>
+                <div class="seal-box">
+                  <div class="seal" id="preview-seal">志福随笔</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Floating Action Buttons - 颠覆性设计：浮动操作区 -->
+    <div class="floating-actions">
+      <!-- 保存按钮（桌面端） -->
+      <button
+        class="fab save-fab"
+        id="download-fab"
+        type="button"
+        aria-label="保存并下载"
+        title="保存"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Floating Preview Button (移动端) -->
+    <button
+      class="floating-preview-btn"
+      id="mobile-preview-btn"
+      type="button"
+      aria-label="预览卡片"
+      aria-expanded="false"
+    >
+      <div class="preview-thumbnail" id="preview-thumbnail" aria-hidden="true">
+        <!-- 缩略图将通过 JS 动态生成 -->
+      </div>
+    </button>
+
+    <script src="script.js"></script>
+  </body>
+</html>
