@@ -2,6 +2,8 @@
 
 一个简单易用的书摘卡片生成工具，可以快速生成精美的书摘图片。
 
+[点击体验](https://zhifu-tech.github.io/apps/book-excerpt-generator/)
+
 ## 预览截图
 
 ### 桌面端预览
