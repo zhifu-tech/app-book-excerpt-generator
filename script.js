@@ -162,6 +162,7 @@ class DOMManager {
       previewWrapper: document.getElementById("preview-wrapper"),
       previewArea: document.getElementById("preview-area"),
       mobilePreviewBtn: document.getElementById("mobile-preview-btn"),
+      mobilePreviewContainer: document.getElementById("mobile-preview-container"),
     };
   }
 
@@ -804,25 +805,23 @@ class ThumbnailManager {
   _updateThumbnail() {
     const thumbnail = this.dom.get("previewThumbnail");
     const card = this.dom.get("card");
-    const btn = this.dom.get("mobilePreviewBtn");
+    const container = this.dom.get("mobilePreviewContainer");
 
-    if (!thumbnail || !card || typeof html2canvas === "undefined") return;
+    if (!thumbnail || !card || typeof html2canvas === "undefined" || !container) return;
 
-    // 首次加载时，设置按钮初始状态为透明
-    if (this.isFirstLoad && btn) {
-      btn.style.opacity = "0";
-      btn.style.transition = "none"; // 初始状态不使用过渡
+    // 首次加载时，设置容器初始状态为透明
+    if (this.isFirstLoad) {
+      container.style.opacity = "0";
+      container.style.transition = "none"; // 初始状态不使用过渡
     }
 
     // 保存位置
-    if (btn) {
-      const rect = btn.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        this.state.thumbnailPosition = {
-          x: rect.left,
-          y: window.innerHeight - rect.bottom,
-        };
-      }
+    const rect = container.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      this.state.thumbnailPosition = {
+        x: rect.left,
+        y: window.innerHeight - rect.bottom,
+      };
     }
 
     // 使用统一的预览处理器获取背景样式
@@ -869,9 +868,7 @@ class ThumbnailManager {
     }
 
     // 设置缩略图容器的实际高度
-    if (btn) {
-      btn.style.height = `${actualThumbnailHeight}px`;
-    }
+    container.style.height = `${actualThumbnailHeight}px`;
 
     // 计算html2canvas的缩放比例
     // 基础缩放：使卡片宽度适配缩略图宽度
@@ -934,13 +931,13 @@ class ThumbnailManager {
         this.restorePosition();
 
         // 首次加载时，添加淡入动画
-        if (this.isFirstLoad && btn) {
+        if (this.isFirstLoad && container) {
           // 强制浏览器重新计算，确保初始状态被记录
-          void btn.offsetWidth;
+          void container.offsetWidth;
 
           // 应用过渡并淡入
-          btn.style.transition = `opacity ${CONFIG.ANIMATION_DURATION.SLOW}ms cubic-bezier(0.4, 0, 0.2, 1)`;
-          btn.style.opacity = "1";
+          container.style.transition = `opacity ${CONFIG.ANIMATION_DURATION.SLOW}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+          container.style.opacity = "1";
 
           // 标记首次加载完成
           this.isFirstLoad = false;
@@ -959,26 +956,26 @@ class ThumbnailManager {
    * 诉求：缩略图的右下角应该在下载按钮的上方
    */
   restorePosition() {
-    const btn = this.dom.get("mobilePreviewBtn");
-    if (!btn) return;
+    const container = this.dom.get("mobilePreviewContainer");
+    if (!container) return;
 
     const downloadFab = document.getElementById("download-fab");
     if (!downloadFab) {
       // 如果找不到下载按钮，使用默认位置
       const spacingXl = 32;
-      btn.style.left = "auto";
-      btn.style.right = `${spacingXl}px`;
-      btn.style.bottom = `${spacingXl + 72}px`;
+      container.style.left = "auto";
+      container.style.right = `${spacingXl}px`;
+      container.style.bottom = `${spacingXl + 72}px`;
       return;
     }
 
     // 获取下载按钮的位置
     const fabRect = downloadFab.getBoundingClientRect();
 
-    // 获取缩略图按钮的尺寸
-    const btnRect = btn.getBoundingClientRect();
-    const btnWidth = btnRect.width || 200;
-    const btnHeight = btnRect.height || 200;
+    // 获取容器的尺寸
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width || 200;
+    const containerHeight = containerRect.height || 200;
 
     // 间距：缩略图右下角与下载按钮顶部之间的间距
     const spacing = 8; // 8px
@@ -990,10 +987,10 @@ class ThumbnailManager {
     const bottomValue = window.innerHeight - fabRect.top + spacing;
 
     // 设置位置
-    btn.style.left = "auto";
-    btn.style.right = `${rightValue}px`;
-    btn.style.bottom = `${bottomValue}px`;
-    btn.style.transition = "left 0.3s ease, bottom 0.3s ease, right 0.3s ease";
+    container.style.left = "auto";
+    container.style.right = `${rightValue}px`;
+    container.style.bottom = `${bottomValue}px`;
+    container.style.transition = "left 0.3s ease, bottom 0.3s ease, right 0.3s ease";
 
     // 保存位置信息
     this.state.thumbnailPosition = {
@@ -1154,14 +1151,15 @@ class MobilePreviewManager {
   }
 
   init() {
+    const container = this.dom.get("mobilePreviewContainer");
     const btn = this.dom.get("mobilePreviewBtn");
     const previewArea = this.dom.get("previewArea");
-    if (!btn || !previewArea) return;
+    if (!container || !btn || !previewArea) return;
 
     // 点击切换预览 - 使用 touchend 事件，更可靠
-    btn.addEventListener("touchend", (e) => {
+    container.addEventListener("touchend", (e) => {
       // 如果拖动被禁用（预览模式下），直接切换预览
-      if (btn._dragDisabled) {
+      if (container._dragDisabled) {
         e.preventDefault();
         this.togglePreview(previewArea);
         return;
@@ -1170,8 +1168,8 @@ class MobilePreviewManager {
       // 检查是否是拖动（移动距离超过阈值）
       const touch = e.changedTouches[0];
       if (touch) {
-        const deltaX = Math.abs(touch.clientX - (btn._startX || 0));
-        const deltaY = Math.abs(touch.clientY - (btn._startY || 0));
+        const deltaX = Math.abs(touch.clientX - (container._startX || 0));
+        const deltaY = Math.abs(touch.clientY - (container._startY || 0));
 
         // 如果移动距离很小，认为是点击
         if (deltaX < CONFIG.DRAG_THRESHOLD && deltaY < CONFIG.DRAG_THRESHOLD) {
@@ -1182,28 +1180,36 @@ class MobilePreviewManager {
     });
 
     // 保存触摸开始位置
-    btn.addEventListener("touchstart", (e) => {
+    container.addEventListener("touchstart", (e) => {
       // 如果拖动被禁用（预览模式下），不保存位置
-      if (btn._dragDisabled) {
+      if (container._dragDisabled) {
         return;
       }
       const touch = e.touches[0];
       if (touch) {
-        btn._startX = touch.clientX;
-        btn._startY = touch.clientY;
+        container._startX = touch.clientX;
+        container._startY = touch.clientY;
       }
     });
 
     // 也支持鼠标点击（桌面端测试）
-    btn.addEventListener("click", (e) => {
+    container.addEventListener("click", (e) => {
       // 如果拖动被禁用（预览模式下），直接切换预览
-      if (btn._dragDisabled) {
+      if (container._dragDisabled) {
         e.preventDefault();
         this.togglePreview(previewArea);
         return;
       }
-      // 允许点击按钮内的任何元素（包括缩略图）都能触发预览
+      // 允许点击容器内的任何元素（包括缩略图和按钮）都能触发预览
       this.togglePreview(previewArea);
+    });
+
+    // 按钮点击事件（作为备用）
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!container._dragDisabled) {
+        this.togglePreview(previewArea);
+      }
     });
 
     // 点击预览页任何地方都关闭预览
@@ -1235,13 +1241,13 @@ class MobilePreviewManager {
   }
 
   openPreview(previewArea) {
-    const btn = this.dom.get("mobilePreviewBtn");
+    const container = this.dom.get("mobilePreviewContainer");
     const previewWrapper = this.dom.get("previewWrapper");
     const sidebar = document.querySelector(".sidebar");
-    if (!btn || !previewWrapper) return;
+    if (!container || !previewWrapper) return;
 
     // 获取缩略图的当前位置和尺寸（动画起始位置）
-    const rect = btn.getBoundingClientRect();
+    const rect = container.getBoundingClientRect();
     const currentLeft = rect.left;
     const currentTop = rect.top;
     const currentWidth = rect.width;
@@ -1250,7 +1256,7 @@ class MobilePreviewManager {
     const currentCenterY = currentTop + currentHeight / 2;
 
     // 保存原始状态
-    btn._originalState = {
+    container._originalState = {
       width: `${currentWidth}px`,
       height: `${currentHeight}px`,
       left: `${currentLeft}px`,
@@ -1288,18 +1294,18 @@ class MobilePreviewManager {
 
     // ========== 步骤1：设置初始状态 ==========
     // 禁用所有过渡
-    btn.style.transition = "none";
+    container.style.transition = "none";
     previewWrapper.style.transition = "none";
     previewArea.style.transition = "none";
     if (sidebar) sidebar.style.transition = "none";
 
     // 设置缩略图初始状态
-    btn.style.left = `${currentLeft}px`;
-    btn.style.bottom = `${window.innerHeight - rect.bottom}px`;
-    btn.style.right = "auto";
-    btn.style.transform = "translate(0, 0) scale(1)";
-    btn.style.opacity = "1";
-    btn.style.zIndex = "1002";
+    container.style.left = `${currentLeft}px`;
+    container.style.bottom = `${window.innerHeight - rect.bottom}px`;
+    container.style.right = "auto";
+    container.style.transform = "translate(0, 0) scale(1)";
+    container.style.opacity = "1";
+    container.style.zIndex = "1002";
 
     // 设置预览内容初始状态（与缩略图位置和大小完全一致）
     previewWrapper.style.transform = `translate(${initialTranslateX}px, ${initialTranslateY}px) scale(${initialScaleX}, ${initialScaleY})`;
@@ -1318,14 +1324,14 @@ class MobilePreviewManager {
     }
 
     // 强制浏览器记录当前状态
-    void btn.offsetWidth;
+    void container.offsetWidth;
     void previewWrapper.offsetWidth;
     void previewArea.offsetWidth;
     if (sidebar) void sidebar.offsetWidth;
 
     // ========== 步骤2：应用过渡并执行动画 ==========
     // 设置过渡
-    btn.style.transition = `transform ${animationDuration}ms ${easing}, opacity ${animationDuration}ms ${easing}`;
+    container.style.transition = `transform ${animationDuration}ms ${easing}, opacity ${animationDuration}ms ${easing}`;
     previewWrapper.style.transition = `transform ${animationDuration}ms ${easing}, opacity ${animationDuration}ms ${easing}`;
     previewArea.style.transition = `opacity ${animationDuration}ms ${easing}`;
     if (sidebar) sidebar.style.transition = `opacity ${animationDuration}ms ${easing}`;
@@ -1335,8 +1341,8 @@ class MobilePreviewManager {
     const targetTranslateY = screenCenterY - currentCenterY;
 
     // 缩略图放大并淡出
-    btn.style.transform = `translate(${targetTranslateX}px, ${targetTranslateY}px) scale(${finalScale})`;
-    btn.style.opacity = "0";
+    container.style.transform = `translate(${targetTranslateX}px, ${targetTranslateY}px) scale(${finalScale})`;
+    container.style.opacity = "0";
 
     // 预览内容同步放大并淡入
     previewWrapper.style.transform = "translate(0, 0) scale(1)";
@@ -1347,24 +1353,24 @@ class MobilePreviewManager {
     previewArea.style.pointerEvents = "auto";
 
     // 标记状态
-    btn.classList.add("preview-mode");
+    container.classList.add("preview-mode");
     previewArea.classList.add("active");
     document.body.style.overflow = "hidden";
 
     // 禁用拖动
-    btn._dragDisabled = true;
+    container._dragDisabled = true;
 
     // 动画结束后隐藏缩略图
     setTimeout(() => {
-      btn.style.display = "none";
-      btn.style.zIndex = "999";
+      container.style.display = "none";
+      container.style.zIndex = "999";
     }, animationDuration);
   }
 
   closePreview(previewArea) {
-    const btn = this.dom.get("mobilePreviewBtn");
+    const container = this.dom.get("mobilePreviewContainer");
     const previewWrapper = this.dom.get("previewWrapper");
-    if (!btn || !previewWrapper || !btn._originalState) return;
+    if (!container || !previewWrapper || !container._originalState) return;
 
     // 获取屏幕尺寸
     const screenWidth = window.innerWidth;
@@ -1373,10 +1379,10 @@ class MobilePreviewManager {
     const screenCenterY = screenHeight / 2;
 
     // 获取缩略图的原始位置和尺寸
-    const originalLeft = parseFloat(btn._originalState.left);
-    const originalTop = parseFloat(btn._originalState.top);
-    const originalWidth = parseFloat(btn._originalState.width);
-    const originalHeight = parseFloat(btn._originalState.height);
+    const originalLeft = parseFloat(container._originalState.left);
+    const originalTop = parseFloat(container._originalState.top);
+    const originalWidth = parseFloat(container._originalState.width);
+    const originalHeight = parseFloat(container._originalState.height);
     const originalCenterX = originalLeft + originalWidth / 2;
     const originalCenterY = originalTop + originalHeight / 2;
 
@@ -1400,17 +1406,17 @@ class MobilePreviewManager {
     // 禁用所有过渡
     previewWrapper.style.transition = "none";
     previewArea.style.transition = "none";
-    btn.style.transition = "none";
+    container.style.transition = "none";
     if (sidebar) sidebar.style.transition = "none";
 
-    // 显示缩略图按钮（初始时透明，位置在目标位置）
-    btn.style.display = "block";
-    btn.style.opacity = "0";
-    btn.style.left = `${originalLeft}px`;
-    btn.style.bottom = `${window.innerHeight - (originalTop + originalHeight)}px`;
-    btn.style.right = "auto";
-    btn.style.transform = "translate(0, 0) scale(1)";
-    btn.style.zIndex = "1002";
+    // 显示缩略图容器（初始时透明，位置在目标位置）
+    container.style.display = "block";
+    container.style.opacity = "0";
+    container.style.left = `${originalLeft}px`;
+    container.style.bottom = `${window.innerHeight - (originalTop + originalHeight)}px`;
+    container.style.right = "auto";
+    container.style.transform = "translate(0, 0) scale(1)";
+    container.style.zIndex = "1002";
 
     // 设置预览内容当前状态（全屏状态）
     previewWrapper.style.transform = "translate(0, 0) scale(1)";
@@ -1430,14 +1436,14 @@ class MobilePreviewManager {
     // 强制浏览器记录当前状态
     void previewWrapper.offsetWidth;
     void previewArea.offsetWidth;
-    void btn.offsetWidth;
+    void container.offsetWidth;
     if (sidebar) void sidebar.offsetWidth;
 
     // ========== 步骤2：应用过渡并执行动画 ==========
     // 设置过渡
     previewWrapper.style.transition = `transform ${animationDuration}ms ${easing}, opacity ${animationDuration}ms ${easing}`;
     previewArea.style.transition = `opacity ${animationDuration}ms ${easing}`;
-    btn.style.transition = `opacity ${animationDuration}ms ${easing}`;
+    container.style.transition = `opacity ${animationDuration}ms ${easing}`;
     if (sidebar) sidebar.style.transition = `opacity ${animationDuration}ms ${easing}`;
 
     // 预览内容缩小并移动到缩略图位置
@@ -1449,7 +1455,7 @@ class MobilePreviewManager {
     previewArea.style.pointerEvents = "none";
 
     // 缩略图淡入
-    btn.style.opacity = "1";
+    container.style.opacity = "1";
 
     // 显示侧边栏（编辑页）- 只使用 opacity，不使用滑动
     if (sidebar) {
@@ -1459,11 +1465,11 @@ class MobilePreviewManager {
 
     // 移除预览模式标记
     previewArea.classList.remove("active");
-    btn.classList.remove("preview-mode");
+    container.classList.remove("preview-mode");
     document.body.style.overflow = "";
 
     // 恢复拖动功能
-    btn._dragDisabled = false;
+    container._dragDisabled = false;
 
     // 动画结束后清理样式
     setTimeout(() => {
@@ -1473,13 +1479,13 @@ class MobilePreviewManager {
       previewWrapper.style.transition = "";
       previewArea.style.opacity = "";
       previewArea.style.transition = "";
-      btn.style.zIndex = "";
+      container.style.zIndex = "";
       if (sidebar) {
         sidebar.style.opacity = "";
         sidebar.style.pointerEvents = "";
         sidebar.style.transition = "";
       }
-      delete btn._originalState;
+      delete container._originalState;
     }, animationDuration);
   }
 
@@ -1784,8 +1790,8 @@ class BookExcerptApp {
    * 诉求：当用户在侧边栏中滑动时，缩略图自动移动到左上角（顶部），避免遮挡操作区域
    */
   initScrollListener() {
-    const btn = this.dom.get("mobilePreviewBtn");
-    if (!btn) return;
+    const container = this.dom.get("mobilePreviewContainer");
+    if (!container) return;
 
     // 获取侧边栏内的可滚动元素
     const scrollContainer = document.querySelector(".controls-scroll");
@@ -1813,9 +1819,9 @@ class BookExcerptApp {
     const initPosition = () => {
       if (isInitialized) return;
 
-      // 获取按钮的实际位置和尺寸
-      const rect = btn.getBoundingClientRect();
-      const computedStyle = window.getComputedStyle(btn);
+      // 获取容器的实际位置和尺寸
+      const rect = container.getBoundingClientRect();
+      const computedStyle = window.getComputedStyle(container);
 
       if (rect.width > 0 && rect.height > 0) {
         // 保存初始位置（bottom 和 right）
@@ -1836,7 +1842,7 @@ class BookExcerptApp {
         // 计算移动到顶部时需要的 translateY 偏移量
         // 目标位置：top = 24px (spacingLg)
         // 当前位置：bottom = initialBottom
-        // 需要向上移动的距离 = (window.innerHeight - initialBottom) - 24 - btn.height
+        // 需要向上移动的距离 = (window.innerHeight - initialBottom) - 24 - container.height
         const spacingLg = 24;
         const currentTop = window.innerHeight - initialBottom - rect.height;
         const targetTop = spacingLg;
@@ -1846,10 +1852,10 @@ class BookExcerptApp {
       }
     };
 
-    // 延迟初始化，确保按钮已渲染且位置已设置
+    // 延迟初始化，确保容器已渲染且位置已设置
     setTimeout(() => {
       // 确保位置已设置
-      if (!btn.style.bottom || btn.style.bottom === "auto") {
+      if (!container.style.bottom || container.style.bottom === "auto") {
         this.thumbnail.restorePosition();
       }
       // 延迟一点再读取位置
@@ -1886,61 +1892,61 @@ class BookExcerptApp {
       isAnimating = true;
 
       // 设置过渡：使用 transform 实现位置移动和缩放，性能最好
-      btn.style.transition = "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0s";
+      container.style.transition = "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0s";
 
       if (targetState === "top") {
         // 移动到右上角：使用 transform: translateY() 实现位置移动
         // 提升 z-index 到最高层级，确保完全露出（高于所有其他元素）
-        btn.style.zIndex = "9999";
+        container.style.zIndex = "9999";
 
         // 设置 right 值，确保右边缘距离屏幕右边缘 spacingXl
         const spacingXl = 32;
-        btn.style.right = `${spacingXl}px`;
-        btn.style.left = "auto";
-        btn.style.bottom = `${initialBottom}px`;
-        btn.style.top = "auto";
+        container.style.right = `${spacingXl}px`;
+        container.style.left = "auto";
+        container.style.bottom = `${initialBottom}px`;
+        container.style.top = "auto";
 
         // 缩略图使用固定大小，不需要调整宽度
 
         // 重新计算 translateY 偏移量，确保顶部位置正确
         // 等待浏览器应用 right 和 width 的更改
         requestAnimationFrame(() => {
-          const currentRect = btn.getBoundingClientRect();
+          const currentRect = container.getBoundingClientRect();
           const currentTop = currentRect.top;
           const spacingLg = 24;
           const targetTop = spacingLg;
           const newTranslateYOffset = targetTop - currentTop;
 
           // 应用位置移动和缩放：translateY 向上移动，scale 缩放
-          btn.style.transform = `translateY(${newTranslateYOffset}px) scale(0.92)`;
+          container.style.transform = `translateY(${newTranslateYOffset}px) scale(0.92)`;
 
           // 延迟恢复缩放，保持位置移动
           setTimeout(() => {
-            btn.style.transform = `translateY(${newTranslateYOffset}px) scale(1)`;
+            container.style.transform = `translateY(${newTranslateYOffset}px) scale(1)`;
             isAnimating = false;
           }, 300);
         });
       } else {
         // 恢复到初始位置：移除 translateY，只保留缩放
-        btn.style.zIndex = "199"; // 恢复到初始 z-index
+        container.style.zIndex = "199"; // 恢复到初始 z-index
 
         // 确保 bottom 和 right 正确设置
-        btn.style.bottom = `${initialBottom}px`;
-        btn.style.right = `${initialRight}px`;
-        btn.style.left = "auto";
-        btn.style.top = "auto";
+        container.style.bottom = `${initialBottom}px`;
+        container.style.right = `${initialRight}px`;
+        container.style.left = "auto";
+        container.style.top = "auto";
 
         // 恢复宽度设置：完全清除内联样式，让 CSS 的初始值生效
         // 使用 removeProperty 确保完全清除，而不是设置为空字符串
-        btn.style.removeProperty("max-width");
-        btn.style.removeProperty("width");
+        container.style.removeProperty("max-width");
+        container.style.removeProperty("width");
 
         // 应用缩放效果：translateY 回到 0，scale 缩放
-        btn.style.transform = "translateY(0) scale(0.92)";
+        container.style.transform = "translateY(0) scale(0.92)";
 
         // 延迟恢复缩放
         setTimeout(() => {
-          btn.style.transform = "translateY(0) scale(1)";
+          container.style.transform = "translateY(0) scale(1)";
           isAnimating = false;
         }, 300);
       }

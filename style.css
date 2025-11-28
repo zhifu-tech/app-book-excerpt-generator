@@ -1157,21 +1157,21 @@ input[type="range"]::-moz-range-track {
     display: none; /* 移动端不显示侧边栏切换按钮 */
   }
 
-  .floating-preview-btn:hover:not(.dragging) {
+  .floating-preview-container:hover:not(.dragging) {
     transform: translateY(-2px);
   }
 
-  .floating-preview-btn.dragging {
+  .floating-preview-container.dragging {
     transition: none;
     cursor: grabbing;
   }
 
-  .floating-preview-btn:active:not(.dragging) {
+  .floating-preview-container:active:not(.dragging) {
     transform: translateY(0);
   }
 
   .preview-thumbnail {
-    height: 100%; /* 填满按钮高度 */
+    height: 100%;
     max-height: none; /* 移除最大高度限制 */
   }
 
@@ -1396,82 +1396,85 @@ select {
 }
 
 /* Floating Preview Button (移动端) */
-.floating-preview-btn {
+.floating-preview-container {
   position: fixed;
   bottom: calc(var(--spacing-lg) + 72px); /* 在 FAB 按钮之上，72px = 56px(FAB高度) + 16px(间距) */
   left: auto; /* 改为 auto，使用 right 定位 */
   right: var(--spacing-xl); /* 与下载按钮右对齐，确保右边露出 */
   z-index: 199; /* 初始 z-index，移动到顶部时会提升到 9999 */
-  background: #fff;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  cursor: pointer; /* 改为指针光标，不再拖动 */
+  width: 160px;
+  height: auto;
+  max-width: 160px;
+  max-height: 50vh; /* 最大高度为屏幕高度的1/2 */
   transition:
     transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
     top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
     bottom 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
     right 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow var(--transition-base),
-    border-color var(--transition-base),
     opacity var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
-  padding: var(--spacing-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 160px;
-  height: auto;
-  max-width: 160px;
-  max-height: 50vh; /* 最大高度为屏幕高度的1/2 */
-  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   touch-action: auto; /* 允许触摸滚动 */
   user-select: none; /* 防止文本选择 */
+  cursor: pointer;
 }
 
-.floating-preview-btn:hover:not(.dragging) {
+.floating-preview-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.floating-preview-container:hover:not(.dragging) {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
-  border-color: var(--primary-color);
 }
 
-.floating-preview-btn.dragging {
+.floating-preview-container.dragging {
   transition: none; /* 拖动时禁用过渡 */
   cursor: grabbing;
-  box-shadow: var(--shadow-xl);
-  border-color: var(--primary-color);
   z-index: 1001; /* 拖动时提升层级 */
 }
 
 /* 预览模式下的样式 */
-.floating-preview-btn.preview-mode {
+.floating-preview-container.preview-mode {
   cursor: pointer; /* 预览模式下显示指针光标 */
   z-index: 1001; /* 确保在预览视图之上 */
   pointer-events: none; /* 预览模式下不可点击 */
 }
 
-.floating-preview-btn.preview-mode:hover {
+.floating-preview-container.preview-mode:hover {
   opacity: 0.7 !important; /* 悬停时稍微提高透明度 */
 }
 
-.floating-preview-btn:active:not(.dragging) {
+.floating-preview-container:active:not(.dragging) {
   transform: translateY(0);
 }
 
 .preview-thumbnail {
   width: 100%;
-  height: 100%; /* 填满按钮高度 */
+  height: 100%;
   background: #fff;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xl);
   position: relative;
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 1; /* 确保没有透明度 */
+  opacity: 1;
   pointer-events: none; /* 让点击事件穿透到按钮 */
+  z-index: 0;
 }
 
 .preview-thumbnail canvas {
@@ -1485,8 +1488,8 @@ select {
 
 /* Desktop Styles - 颠覆性设计 */
 @media screen and (min-width: 769px) {
-  .floating-preview-btn {
-    display: none; /* 桌面端隐藏浮动预览按钮 */
+  .floating-preview-container {
+    display: none; /* 桌面端隐藏浮动预览容器 */
   }
 
   /* 桌面端：侧边栏始终显示，不可收起 */
