@@ -342,17 +342,17 @@
     </div>
 
     <!-- Floating Preview Container (移动端) -->
-    <div class="floating-preview-container" id="mobile-preview-container">
+    <div
+      class="floating-preview-container"
+      id="mobile-preview-container"
+      role="button"
+      tabindex="0"
+      aria-label="预览卡片"
+      aria-expanded="false"
+    >
       <div class="preview-thumbnail" id="preview-thumbnail" aria-hidden="true">
         <!-- 缩略图将通过 JS 动态生成 -->
       </div>
-      <button
-        class="floating-preview-btn"
-        id="mobile-preview-btn"
-        type="button"
-        aria-label="预览卡片"
-        aria-expanded="false"
-      ></button>
     </div>
 
     <script src="script.js"></script>

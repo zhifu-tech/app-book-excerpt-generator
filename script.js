@@ -161,7 +161,6 @@ class DOMManager {
       previewThumbnail: document.getElementById("preview-thumbnail"),
       previewWrapper: document.getElementById("preview-wrapper"),
       previewArea: document.getElementById("preview-area"),
-      mobilePreviewBtn: document.getElementById("mobile-preview-btn"),
       mobilePreviewContainer: document.getElementById("mobile-preview-container"),
     };
   }
@@ -807,7 +806,10 @@ class ThumbnailManager {
     const card = this.dom.get("card");
     const container = this.dom.get("mobilePreviewContainer");
 
-    if (!thumbnail || !card || typeof html2canvas === "undefined" || !container) return;
+    if (!thumbnail || !card || typeof html2canvas === "undefined" || !container) {
+      console.error("Thumbnail generation failed: Missing required elements");
+      return;
+    }
 
     // 首次加载时，设置容器初始状态为透明
     if (this.isFirstLoad) {
@@ -1152,9 +1154,8 @@ class MobilePreviewManager {
 
   init() {
     const container = this.dom.get("mobilePreviewContainer");
-    const btn = this.dom.get("mobilePreviewBtn");
     const previewArea = this.dom.get("previewArea");
-    if (!container || !btn || !previewArea) return;
+    if (!container || !previewArea) return;
 
     // 点击切换预览 - 使用 touchend 事件，更可靠
     container.addEventListener("touchend", (e) => {
@@ -1200,15 +1201,17 @@ class MobilePreviewManager {
         this.togglePreview(previewArea);
         return;
       }
-      // 允许点击容器内的任何元素（包括缩略图和按钮）都能触发预览
+      // 允许点击容器内的任何元素（包括缩略图）都能触发预览
       this.togglePreview(previewArea);
     });
 
-    // 按钮点击事件（作为备用）
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (!container._dragDisabled) {
-        this.togglePreview(previewArea);
+    // 键盘支持（Enter 和 Space 键）
+    container.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (!container._dragDisabled) {
+          this.togglePreview(previewArea);
+        }
       }
     });
 

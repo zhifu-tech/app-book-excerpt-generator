@@ -1133,15 +1133,6 @@ input[type="range"]::-moz-range-track {
   }
 
   /* 移动端浮动预览按钮样式 */
-  .floating-preview-btn {
-    bottom: calc(var(--spacing-lg) + 72px); /* 在 FAB 按钮之上，72px = 56px(FAB高度) + 16px(间距) */
-    left: var(--spacing-md);
-    width: 160px;
-    height: auto;
-    max-width: 160px;
-    max-height: 50vh; /* 最大高度为屏幕高度的1/2 */
-  }
-
   /* 移动端显示 FAB 按钮 */
   .floating-actions {
     display: flex;
@@ -1418,22 +1409,6 @@ select {
   cursor: pointer;
 }
 
-.floating-preview-btn {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  z-index: 1;
-  -webkit-tap-highlight-color: transparent;
-}
 
 .floating-preview-container:hover:not(.dragging) {
   transform: translateY(-2px);

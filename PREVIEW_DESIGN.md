@@ -376,6 +376,198 @@ class MobilePreviewManager {
 缩放计算：Math.max(scaleX, scaleY) × 1.05（确保覆盖全屏）
 ```
 
+#### 2.3.5 点击缩略图切换到预览的详细流程
+
+**涉及的 DOM 元素**
+
+1. **`#mobile-preview-container`** (`.floating-preview-container`)
+   - 缩略图容器，固定定位在右下角
+   - 包含缩略图
+   - 具有 `role="button"` 和 `tabindex="0"` 属性，支持键盘导航
+   - 监听所有点击和触摸事件
+
+2. **`#preview-thumbnail`** (`.preview-thumbnail`)
+   - 缩略图显示区域
+   - 包含动态生成的 canvas
+   - `pointer-events: none`（点击穿透）
+
+3. **`#preview-area`** (`.preview-area`)
+   - 预览区域（全屏背景层）
+   - 初始状态：`opacity: 0`, `pointer-events: none`
+
+4. **`#preview-wrapper`** (`.preview-wrapper`)
+   - 预览内容包装器
+   - 包含 `#card-preview`（实际卡片内容）
+
+5. **`.sidebar`**
+   - 侧边栏（编辑区域）
+   - 预览时隐藏
+
+**事件流程**
+
+```
+用户触摸屏幕
+    ↓
+touchstart: 保存起始位置 (container._startX, container._startY)
+    ↓
+用户抬起手指
+    ↓
+touchend: 计算移动距离
+    ↓
+如果移动距离 < 5px (DRAG_THRESHOLD)
+    ↓
+认为是点击 → 调用 togglePreview()
+```
+
+**打开预览动画（openPreview()）详细步骤**
+
+**阶段1：准备初始状态**
+
+```javascript
+// 1. 获取缩略图容器的位置和尺寸
+const rect = container.getBoundingClientRect();
+const currentLeft = rect.left;
+const currentTop = rect.top;
+const currentWidth = rect.width;
+const currentHeight = rect.height;
+const currentCenterX = currentLeft + currentWidth / 2;
+const currentCenterY = currentTop + currentHeight / 2;
+
+// 2. 计算屏幕中心点
+const screenCenterX = window.innerWidth / 2;
+const screenCenterY = window.innerHeight / 2;
+
+// 3. 计算预览内容的初始缩放（与缩略图大小一致）
+const previewAreaRect = previewArea.getBoundingClientRect();
+const initialScaleX = currentWidth / previewAreaRect.width;
+const initialScaleY = currentHeight / previewAreaRect.height;
+
+// 4. 计算预览内容的初始位置（中心对齐）
+const initialTranslateX = currentCenterX - screenCenterX;
+const initialTranslateY = currentCenterY - screenCenterY;
+
+// 5. 计算缩放比例（使缩略图放大到覆盖全屏）
+const scaleX = screenWidth / currentWidth;
+const scaleY = screenHeight / currentHeight;
+const finalScale = Math.max(scaleX, scaleY) * 1.05; // 确保覆盖
+```
+
+**阶段2：设置初始样式（禁用过渡）**
+
+```javascript
+// 禁用所有过渡
+container.style.transition = "none";
+previewWrapper.style.transition = "none";
+previewArea.style.transition = "none";
+sidebar.style.transition = "none";
+
+// 缩略图容器：保持当前位置和大小
+container.style.left = `${currentLeft}px`;
+container.style.bottom = `${window.innerHeight - rect.bottom}px`;
+container.style.transform = "translate(0, 0) scale(1)";
+container.style.opacity = "1";
+container.style.zIndex = "1002";
+
+// 预览内容：初始位置与缩略图一致，但隐藏
+previewWrapper.style.transform = `translate(${initialTranslateX}px, ${initialTranslateY}px) scale(${initialScaleX}, ${initialScaleY})`;
+previewWrapper.style.transformOrigin = "center center";
+previewWrapper.style.opacity = "0";
+
+// 预览区域：隐藏
+previewArea.style.opacity = "0";
+previewArea.style.pointerEvents = "none";
+previewArea.style.zIndex = "100";
+
+// 侧边栏：隐藏
+sidebar.style.opacity = "0";
+sidebar.style.pointerEvents = "none";
+```
+
+**阶段3：执行动画（启用过渡，300ms）**
+
+```javascript
+// 启用过渡
+container.style.transition = `transform ${animationDuration}ms ${easing}, opacity ${animationDuration}ms ${easing}`;
+previewWrapper.style.transition = `transform ${animationDuration}ms ${easing}, opacity ${animationDuration}ms ${easing}`;
+previewArea.style.transition = `opacity ${animationDuration}ms ${easing}`;
+sidebar.style.transition = `opacity ${animationDuration}ms ${easing}`;
+
+// 计算缩略图的目标位置（中心对齐屏幕中心）
+const targetTranslateX = screenCenterX - currentCenterX;
+const targetTranslateY = screenCenterY - currentCenterY;
+
+// 缩略图：放大并淡出（移动到屏幕中心）
+container.style.transform = `translate(${targetTranslateX}px, ${targetTranslateY}px) scale(${finalScale})`;
+container.style.opacity = "0";
+
+// 预览内容：同步放大并淡入（从缩略图位置到全屏）
+previewWrapper.style.transform = "translate(0, 0) scale(1)";
+previewWrapper.style.opacity = "1";
+
+// 预览区域：淡入
+previewArea.style.opacity = "1";
+previewArea.style.pointerEvents = "auto";
+
+// 侧边栏：保持隐藏
+sidebar.style.opacity = "0";
+```
+
+**阶段4：动画完成后**
+
+```javascript
+// 隐藏缩略图容器
+container.style.display = "none";
+
+// 标记状态
+container.classList.add("preview-mode");
+previewArea.classList.add("active");
+document.body.style.overflow = "hidden";
+container._dragDisabled = true;
+```
+
+**视觉流程示意**
+
+```
+初始状态：
+┌─────────────────────────┐
+│  侧边栏（编辑区）        │
+│  ┌─────────────┐        │
+│  │             │        │
+│  │  卡片预览   │        │
+│  │             │        │
+│  └─────────────┘        │
+│                         │
+│              ┌──────┐   │
+│              │缩略图│   │ ← 点击这里
+│              └──────┘   │
+└─────────────────────────┘
+
+动画中：
+缩略图放大并淡出（移动到屏幕中心）
+预览内容同步放大并淡入（从缩略图位置到全屏）
+
+最终状态：
+┌─────────────────────────┐
+│                         │
+│   ┌─────────────────┐   │
+│   │                 │   │
+│   │   全屏预览      │   │
+│   │   (卡片内容)    │   │
+│   │                 │   │
+│   └─────────────────┘   │
+│                         │
+│  侧边栏已隐藏            │
+└─────────────────────────┘
+```
+
+**关键技术点**
+
+1. **两阶段动画**：先设置初始状态（无过渡），再启用过渡执行动画，确保动画流畅
+2. **同步动画**：缩略图和预览内容同步变化，形成视觉上的连续过渡
+3. **中心对齐**：使用 `transform` 和 `scale` 实现缩放和位置对齐
+4. **状态管理**：通过 `preview-mode` 类和 `_dragDisabled` 标记状态
+5. **性能优化**：使用 `transform` 和 `opacity`（GPU 加速），避免 `left/top` 重排
+
 ### 2.4 PreviewManager（预览管理器）
 
 #### 2.4.1 职责
