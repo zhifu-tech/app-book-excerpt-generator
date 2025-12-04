@@ -5,9 +5,10 @@ import { CONFIG } from "./config.js";
 import { Utils } from "./utils.js";
 
 export class MobilePreviewManager {
-  constructor(dom, thumbnailManager) {
+  constructor(dom, thumbnailManager, state) {
     this.dom = dom;
     this.thumbnailManager = thumbnailManager; // 使用 ThumbnailManager 统一管理状态
+    this.state = state; // 添加 state 引用，用于判断布局类型
     this.ANIMATION_DURATION = CONFIG.ANIMATION_DURATION.SLOW;
     this.EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
     this.init();
@@ -106,6 +107,10 @@ export class MobilePreviewManager {
     if (isFullscreen) {
       element.style.setProperty("opacity", "1", "important");
       element.style.setProperty("visibility", "visible", "important");
+
+      // 全屏预览时，统一从顶部开始显示，允许滚动（确保头部信息可见）
+      element.style.setProperty("align-items", "flex-start", "important");
+      element.style.setProperty("overflow-y", "auto", "important");
     }
   }
 
@@ -130,13 +135,20 @@ export class MobilePreviewManager {
   }
 
   _createFullscreenState() {
+    // 根据布局类型决定高度和位置
+    // 竖版布局内容可能较长，使用 100vh 允许滚动
+    // 横版布局也使用 100vh，从顶部开始显示，允许滚动（确保头部信息可见）
+    const isVertical = this.state?.layout === "vertical";
+    const height = "100vh"; // 统一使用 100vh，允许内容滚动
+    const top = "0px"; // 统一从顶部开始，确保头部信息可见
+
     return {
       left: "0px",
-      top: `calc((100vh - ${CONFIG.THUMBNAIL_HEIGHT_VH}vh) / 2)`,
+      top: top,
       right: "auto",
       bottom: "auto",
       width: "100vw",
-      height: `${CONFIG.THUMBNAIL_HEIGHT_VH}vh`,
+      height: height,
       transform: "scale(1)",
       transformOrigin: "top left",
       zIndex: "1000",
@@ -349,13 +361,14 @@ export class MobilePreviewManager {
 
     // 创建全屏初始状态：left=缩略图位置, top=缩略图位置, transform=translate(0,0) scale(1)
     // 这样关闭动画时，只需要动画 transform，left/top 保持不变
+    // 统一使用 100vh 高度，从顶部开始显示，允许滚动（确保头部信息可见）
     const fullscreenInitialState = {
       left: thumbnailLeft !== null ? thumbnailState.left : "0px",
       top: thumbnailTop !== null ? thumbnailState.top : "0px",
       right: "auto",
       bottom: "auto",
       width: "100vw",
-      height: `${CONFIG.THUMBNAIL_HEIGHT_VH}vh`,
+      height: "100vh",
       transform: "translate(0, 0) scale(1)",
       transformOrigin: "top left",
       zIndex: "1000",

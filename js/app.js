@@ -19,7 +19,7 @@ export class BookExcerptApp {
     this.preview = new PreviewManager(this.dom, this.state);
     this.thumbnail = new ThumbnailManager(this.dom, this.state);
     this.download = null; // 将在init中初始化
-    this.mobilePreview = new MobilePreviewManager(this.dom, this.thumbnail);
+    this.mobilePreview = new MobilePreviewManager(this.dom, this.thumbnail, this.state);
   }
 
   init() {
