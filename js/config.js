@@ -56,5 +56,3 @@ export const FONT_SIZE_STEP = 2;
 export const CARD_WIDTH_MIN = 300;
 export const CARD_WIDTH_MAX = 600;
 export const CARD_WIDTH_STEP = 30;
-
-

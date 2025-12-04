@@ -13,20 +13,85 @@ export class MobilePreviewManager {
     this.init();
   }
 
+  /**
+   * 解析位置值（支持 px 和 calc）
+   */
+  _parsePositionValue(value) {
+    if (typeof value === "string") {
+      if (value.includes("px")) {
+        return parseFloat(value);
+      }
+      if (value === "auto" || value === "0px" || value === "0") {
+        return 0;
+      }
+      // 对于 calc，返回 null，表示需要特殊处理
+      if (value.includes("calc")) {
+        return null;
+      }
+    }
+    return 0;
+  }
+
   _applyState(element, state, isFullscreen = false) {
-    const properties = {
-      left: state.left,
-      top: state.top,
+    // 设置位置和尺寸（这些是基础布局属性）
+    // 关键策略：
+    // - 缩略图状态：left/top 设置为缩略图位置，transform = translate(0, 0) scale(0.4)
+    // - 全屏状态：left/top 保持为缩略图位置（不立即变为 0），
+    //   通过 transform: translate(-left, -top) scale(1) 来移动到 (0, 0)
+    //   这样位置移动和缩放可以同时动画，不会出现先移动后缩放的问题
+
+    // 获取缩略图位置（用于全屏状态时保持 left/top）
+    const thumbnailState = this.thumbnailManager?.getThumbnailState(element);
+    const thumbnailLeft = thumbnailState ? this._parsePositionValue(thumbnailState.left) : null;
+    const thumbnailTop = thumbnailState ? this._parsePositionValue(thumbnailState.top) : null;
+
+    const layoutProperties = {
+      // 全屏时，left/top 保持为缩略图位置，通过 translate 来移动
+      // 这样 left/top 不参与动画，只有 transform 参与动画
+      left: isFullscreen && thumbnailLeft !== null ? thumbnailState.left : state.left,
+      top: isFullscreen && thumbnailTop !== null ? thumbnailState.top : state.top,
       right: state.right,
       bottom: state.bottom,
       width: state.width,
       height: state.height,
-      transform: state.transform,
+    };
+
+    Object.entries(layoutProperties).forEach(([key, value]) => {
+      element.style.setProperty(key, value, "important");
+    });
+
+    // 计算 transform：将 left/top 的变化转换为 translate
+    let finalTransform = state.transform || "";
+
+    if (isFullscreen) {
+      // 全屏状态：通过 translate 来移动到 (0, 0)
+      if (thumbnailLeft !== null && thumbnailTop !== null) {
+        // 从缩略图位置 (thumbnailLeft, thumbnailTop) 移动到 (0, 0)
+        // 所以 translate 是负值
+        const translateX = -thumbnailLeft;
+        const translateY = -thumbnailTop;
+        // transform 顺序：先 translate 后 scale（从右到左应用）
+        finalTransform = `translate(${translateX}px, ${translateY}px) scale(1)`;
+      } else {
+        // 如果无法解析（如 calc），使用原始 transform
+        finalTransform = state.transform || "scale(1)";
+      }
+    } else {
+      // 缩略图状态：translate 为 0，只有 scale
+      // 确保 transform 包含 translate(0, 0)，这样动画时才能平滑过渡
+      if (!finalTransform.includes("translate")) {
+        finalTransform = `translate(0, 0) ${finalTransform}`;
+      }
+    }
+
+    // 设置 transform 相关属性（这些会参与动画）
+    const transformProperties = {
+      transform: finalTransform,
       "transform-origin": state.transformOrigin,
       "z-index": state.zIndex,
     };
 
-    Object.entries(properties).forEach(([key, value]) => {
+    Object.entries(transformProperties).forEach(([key, value]) => {
       element.style.setProperty(key, value, "important");
     });
 
@@ -39,15 +104,12 @@ export class MobilePreviewManager {
   }
 
   _setupTransition(previewArea, sidebar) {
+    // 只动画 transform 相关属性，避免 layout 抖动
+    // 使用 transform: translate() 代替 left/top，确保所有动画都在同一层处理
+    // 这样可以避免 left 和 transform 进度不一致导致的超出屏幕问题
     const transitionProperties = [
       "transform",
       "transform-origin",
-      "left",
-      "top",
-      "right",
-      "bottom",
-      "width",
-      "height",
       "z-index",
       "border",
       "border-radius",
@@ -112,14 +174,25 @@ export class MobilePreviewManager {
    * @param {HTMLElement} previewArea - 预览区域元素
    * @param {HTMLElement} sidebar - 侧边栏元素
    * @param {Object} thumbnailState - 缩略图状态
+   * @param {boolean} isFullscreen - 是否为全屏状态
    */
-  _cleanupAfterAnimation(previewArea, sidebar, thumbnailState) {
+  _cleanupAfterAnimation(previewArea, sidebar, thumbnailState, isFullscreen = false) {
     previewArea.style.transition = "";
     if (sidebar) {
       sidebar.style.opacity = "";
       sidebar.style.pointerEvents = "";
       sidebar.style.transition = "";
     }
+
+    // 如果是全屏状态，动画结束后需要将 left/top 设置为 0
+    // 因为动画时 left/top 保持为缩略图位置，通过 translate 来移动
+    // 动画结束后，应该将 left/top 设置为 0，translate 设置为 0，这样关闭动画时才能正确
+    if (isFullscreen) {
+      previewArea.style.setProperty("left", "0px", "important");
+      previewArea.style.setProperty("top", "0px", "important");
+      previewArea.style.setProperty("transform", "scale(1)", "important");
+    }
+
     // 通过 ThumbnailManager 统一更新状态
     if (this.thumbnailManager && thumbnailState) {
       this.thumbnailManager.updateThumbnailState(previewArea, thumbnailState, false);
@@ -258,15 +331,38 @@ export class MobilePreviewManager {
     const thumbnailState = this.thumbnailManager.getThumbnailState(previewArea);
     if (!thumbnailState) return;
 
-    const fullscreenState = this._createFullscreenState();
-
     // 步骤2：设置初始状态（全屏预览状态）
+    // 注意：此时 left/top 应该是 0（打开动画结束后设置的）
+    // 但为了关闭动画时也能使用 translate，我们需要：
+    // - left/top 保持为缩略图位置（通过 translate 来移动）
+    // - transform = translate(0, 0) scale(1)（从 translate(-left, -top) scale(1) 动画到 translate(0,0) scale(0.4)）
+
+    // 获取缩略图位置
+    const thumbnailLeft = this._parsePositionValue(thumbnailState.left);
+    const thumbnailTop = this._parsePositionValue(thumbnailState.top);
+
     this._prepareAnimation(previewArea, sidebar);
-    this._applyState(previewArea, fullscreenState, true);
+
+    // 创建全屏初始状态：left=缩略图位置, top=缩略图位置, transform=translate(0,0) scale(1)
+    // 这样关闭动画时，只需要动画 transform，left/top 保持不变
+    const fullscreenInitialState = {
+      left: thumbnailLeft !== null ? thumbnailState.left : "0px",
+      top: thumbnailTop !== null ? thumbnailState.top : "0px",
+      right: "auto",
+      bottom: "auto",
+      width: "100vw",
+      height: `${CONFIG.THUMBNAIL_HEIGHT_VH}vh`,
+      transform: "translate(0, 0) scale(1)",
+      transformOrigin: "top left",
+      zIndex: "1000",
+    };
+
+    this._applyState(previewArea, fullscreenInitialState, true);
     this._hideSidebar(sidebar);
     this._forceReflow(previewArea, sidebar);
 
     // 步骤3：执行动画到目标状态（缩略图状态）
+    // 目标：left=缩略图位置（保持不变）, top=缩略图位置（保持不变）, transform=translate(0,0) scale(0.4)
     this._setupTransition(previewArea, sidebar);
     previewArea.classList.remove("preview-fullscreen", "active");
     this._applyState(previewArea, thumbnailState, false);
@@ -278,7 +374,7 @@ export class MobilePreviewManager {
 
     // 动画结束后清理并更新状态
     setTimeout(() => {
-      this._cleanupAfterAnimation(previewArea, sidebar, thumbnailState);
+      this._cleanupAfterAnimation(previewArea, sidebar, thumbnailState, false);
     }, this.ANIMATION_DURATION);
   }
 
