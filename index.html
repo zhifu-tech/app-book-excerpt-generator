@@ -26,6 +26,7 @@
     />
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- 尝试使用更新的版本以获得更好的文字渲染质量 -->
   </head>
   <body>
     <div class="app-container">
@@ -174,6 +175,10 @@
                   <span>卡片宽度</span>
                   <span class="width-value" id="card-width-value">400px</span>
                 </div>
+                <div class="width-hint">
+                  视觉宽度，如苹果 12 Pro 手机，视觉宽度是 390px，密度是 3，导出图片的大小是 1170px
+                  = 390 × 3
+                </div>
                 <div class="width-slider-container">
                   <input
                     type="range"
@@ -253,6 +258,112 @@
               </div>
             </div>
           </div>
+
+          <!-- 导出选项组 -->
+          <div class="control-section">
+            <div class="section-header">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>导出选项</span>
+            </div>
+            <div class="section-content">
+              <div class="control-group">
+                <div class="export-format-grid" role="group" aria-label="导出格式选择">
+                  <label class="export-format-option">
+                    <input
+                      type="checkbox"
+                      name="export-format"
+                      value="png"
+                      checked
+                      aria-label="PNG 格式"
+                    />
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="9" y1="3" x2="9" y2="21"></line>
+                    </svg>
+                    <span>PNG</span>
+                  </label>
+                  <label class="export-format-option">
+                    <input
+                      type="checkbox"
+                      name="export-format"
+                      value="jpeg"
+                      aria-label="JPEG 格式"
+                    />
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <span>JPEG</span>
+                  </label>
+                  <label class="export-format-option">
+                    <input type="checkbox" name="export-format" value="svg" aria-label="SVG 格式" />
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                      ></path>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    <span>SVG</span>
+                  </label>
+                  <label class="export-format-option">
+                    <input
+                      type="checkbox"
+                      name="export-format"
+                      value="webp"
+                      aria-label="WebP 格式"
+                    />
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <path d="M21 15l-5-5L5 21"></path>
+                    </svg>
+                    <span>WebP</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="sidebar-footer">
@@ -281,35 +392,38 @@
       </aside>
 
       <!-- Right Panel: Preview -->
-      <main class="preview-area" id="preview-area">
-        <div class="preview-wrapper" id="preview-wrapper">
-          <div id="card-preview" class="card theme-clean">
-            <div class="card-inner">
-              <div class="card-header">
-                <span class="date" id="current-date">2025.11.24</span>
-                <span class="tag">读书偶得</span>
-              </div>
+      <main
+        class="preview-area"
+        id="preview-area"
+        role="button"
+        tabindex="0"
+        aria-label="预览卡片"
+        aria-expanded="false"
+      >
+        <div id="card-preview" class="card theme-clean">
+          <div class="card-header">
+            <span class="date" id="current-date">2025.11.24</span>
+            <span class="tag">读书偶得</span>
+          </div>
 
-              <div class="card-body">
-                <div class="quote-mark start">“</div>
-                <div class="text-content" id="preview-text">
-                  生活不可能像你想象得那么好，但也不会像你想象得那么糟。
-                </div>
-                <div class="quote-mark end">”</div>
-              </div>
+          <div class="card-body">
+            <div class="quote-mark start">"</div>
+            <div class="text-content" id="preview-text">
+              生活不可能像你想象得那么好，但也不会像你想象得那么糟。
+            </div>
+            <div class="quote-mark end">"</div>
+          </div>
 
-              <div class="card-footer-info">
-                <div class="book-info">
-                  <div class="line"></div>
-                  <div class="meta">
-                    <span class="book" id="preview-book">羊脂球</span>
-                    <span class="author" id="preview-author">莫泊桑</span>
-                  </div>
-                </div>
-                <div class="seal-box">
-                  <div class="seal" id="preview-seal">志福随笔</div>
-                </div>
+          <div class="card-footer-info">
+            <div class="book-info">
+              <div class="line"></div>
+              <div class="meta">
+                <span class="book" id="preview-book">羊脂球</span>
+                <span class="author" id="preview-author">莫泊桑</span>
               </div>
+            </div>
+            <div class="seal-box">
+              <div class="seal" id="preview-seal">志福随笔</div>
             </div>
           </div>
         </div>
@@ -341,20 +455,6 @@
       </button>
     </div>
 
-    <!-- Floating Preview Container (移动端) -->
-    <div
-      class="floating-preview-container"
-      id="mobile-preview-container"
-      role="button"
-      tabindex="0"
-      aria-label="预览卡片"
-      aria-expanded="false"
-    >
-      <div class="preview-thumbnail" id="preview-thumbnail" aria-hidden="true">
-        <!-- 缩略图将通过 JS 动态生成 -->
-      </div>
-    </div>
-
-    <script src="script.js"></script>
+    <script type="module" src="js/index.js"></script>
   </body>
 </html>

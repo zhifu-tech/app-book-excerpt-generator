@@ -1,0 +1,344 @@
+/**
+ * 下载管理器
+ */
+import { CONFIG } from "./config.js";
+import { Utils } from "./utils.js";
+import { PreviewProcessor } from "./preview-processor.js";
+
+export class DownloadManager {
+  constructor(dom, state, previewManager) {
+    this.dom = dom;
+    this.state = state;
+    this.previewManager = previewManager;
+    this.processor = new PreviewProcessor(state); // 使用统一的预览处理器
+  }
+
+  async download() {
+    const card = this.dom.card;
+    const downloadBtn = this.dom.downloadBtn;
+    if (!card || !downloadBtn) return;
+
+    // 显示加载状态
+    this.setLoadingState(downloadBtn, true);
+
+    // 使用统一的预览处理器获取背景样式
+    const cardBackgroundInfo = this.processor.getCardBackground(card);
+    const cardBackground = {
+      background: cardBackgroundInfo.background,
+      backgroundColor: cardBackgroundInfo.backgroundColor,
+      backgroundImage: cardBackgroundInfo.backgroundImage,
+      color: cardBackgroundInfo.color,
+    };
+    const currentTheme = cardBackgroundInfo.theme;
+
+    // 保存原始样式
+    const originalStyles = this.saveCardStyles(card);
+    const originalZoom = this.state.zoom;
+
+    // 重置样式和缩放
+    this.prepareCardForCapture(card);
+    this.previewManager.setZoom(1);
+
+    try {
+      // 等待字体加载完成（如果浏览器支持）
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+
+      // 等待样式应用和渲染
+      await new Promise((resolve) => setTimeout(resolve, CONFIG.DOWNLOAD_DELAY));
+
+      // 计算目标尺寸（实际尺寸）
+      const targetWidth = this.state.cardWidth;
+      const cardRect = card.getBoundingClientRect();
+      const aspectRatio = cardRect.height / cardRect.width;
+      const targetHeight = targetWidth * aspectRatio;
+
+      // 根据设备 DPI 设置 scale，类似于截屏设置
+      // devicePixelRatio 通常是 1（普通屏幕）、2（Retina）、3（高 DPI）等
+      // 使用 Math.max(1, ...) 确保至少为 1，避免低 DPI 设备出现问题
+      const deviceScale = window.devicePixelRatio || 1;
+      const finalScale = Math.max(1, deviceScale);
+
+      const options = this.getCanvasOptions(
+        cardBackground,
+        currentTheme,
+        targetWidth,
+        targetHeight,
+        finalScale
+      );
+      const canvas = await html2canvas(card, options);
+
+      // 恢复样式
+      this.restoreCardStyles(card, originalStyles);
+      this.previewManager.setZoom(originalZoom);
+
+      // 根据选中的格式导出（支持多格式）
+      const selectedFormats = this.getSelectedFormats();
+      if (selectedFormats.length === 0) {
+        alert("请至少选择一个导出格式");
+        this.setLoadingState(downloadBtn, false);
+        return;
+      }
+
+      // 导出所有选中的格式
+      for (const format of selectedFormats) {
+        await this.downloadCanvas(canvas, format);
+        // 格式之间稍作延迟，避免浏览器阻止多个下载
+        if (selectedFormats.length > 1 && format !== selectedFormats[selectedFormats.length - 1]) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+      }
+
+      this.setLoadingState(downloadBtn, false, true);
+    } catch (err) {
+      alert("生成图片失败：" + (err.message || "未知错误") + "\n请重试或检查浏览器控制台");
+      this.restoreCardStyles(card, originalStyles);
+      this.previewManager.setZoom(originalZoom);
+      this.setLoadingState(downloadBtn, false);
+    }
+  }
+
+  setLoadingState(btn, isLoading, isSuccess = false) {
+    if (isLoading) {
+      Utils.createLoadingStyles();
+      btn.disabled = true;
+      const originalText = btn.innerHTML;
+      btn.dataset.originalText = originalText;
+      btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      生成中...
+    `;
+    } else {
+      btn.disabled = false;
+      if (isSuccess) {
+        btn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          已保存
+        `;
+        setTimeout(() => {
+          btn.innerHTML = btn.dataset.originalText || "保存";
+        }, 2000);
+      } else {
+        btn.innerHTML = btn.dataset.originalText || "保存";
+      }
+    }
+  }
+
+  saveCardStyles(card) {
+    return {
+      transform: card.style.transform,
+      boxShadow: card.style.boxShadow,
+      position: card.style.position,
+      zIndex: card.style.zIndex,
+    };
+  }
+
+  restoreCardStyles(card, styles) {
+    Object.assign(card.style, styles);
+  }
+
+  prepareCardForCapture(card) {
+    card.style.transform = "none";
+    card.style.boxShadow = "none";
+    card.style.position = "relative";
+    card.style.zIndex = "9999";
+  }
+
+  getCanvasOptions(cardBackground, theme, targetWidth, targetHeight, finalScale) {
+    const isVertical = this.state.layout === "vertical";
+
+    // 使用统一的预览处理器获取背景色
+    const backgroundColor = this.processor.getBackgroundColor(cardBackground, theme);
+
+    const options = {
+      scale: finalScale,
+      useCORS: true,
+      backgroundColor: backgroundColor,
+      logging: false,
+      allowTaint: false,
+      willReadFrequently: false,
+      removeContainer: false,
+      imageTimeout: 15000,
+      // 使用设置的宽度和高度（实际尺寸）
+      // scale 参数会根据设备 DPI 自动调整渲染质量，但不改变最终 canvas 尺寸
+      width: targetWidth,
+      height: targetHeight,
+      // 使用统一的预览处理器，确保与缩略图完全一致
+      onclone: (clonedDoc) => {
+        // 设置克隆文档的 body 和 html 为桌面端尺寸，避免移动端媒体查询生效
+        const clonedBody = clonedDoc.body;
+        const clonedHtml = clonedDoc.documentElement;
+        if (clonedBody) {
+          clonedBody.style.setProperty("min-width", "1024px", "important");
+          clonedBody.style.setProperty("background", "transparent", "important");
+        }
+        if (clonedHtml) {
+          clonedHtml.style.setProperty("min-width", "1024px", "important");
+          clonedHtml.style.setProperty("background", "transparent", "important");
+        }
+
+        // 在克隆文档中强制优化文字渲染
+        const clonedCard = clonedDoc.querySelector("#card-preview");
+        if (clonedCard) {
+          // 强制设置卡片宽度为设置的宽度，确保导出尺寸正确
+          clonedCard.style.setProperty("width", `${targetWidth}px`, "important");
+          clonedCard.style.setProperty("min-width", `${targetWidth}px`, "important");
+          clonedCard.style.setProperty("max-width", `${targetWidth}px`, "important");
+
+          // 强制应用文字渲染优化样式
+          clonedCard.style.setProperty("-webkit-font-smoothing", "antialiased", "important");
+          clonedCard.style.setProperty("-moz-osx-font-smoothing", "grayscale", "important");
+          clonedCard.style.setProperty("text-rendering", "optimizeLegibility", "important");
+          clonedCard.style.setProperty("image-rendering", "-webkit-optimize-contrast", "important");
+          clonedCard.style.setProperty("image-rendering", "crisp-edges", "important");
+
+          // 确保所有文字元素都有正确的字体样式
+          const textElements = clonedCard.querySelectorAll("*");
+          textElements.forEach((el) => {
+            const computedStyle = clonedDoc.defaultView?.getComputedStyle(el);
+            if (computedStyle) {
+              // 强制应用字体相关属性
+              el.style.setProperty("font-family", computedStyle.fontFamily, "important");
+              el.style.setProperty("font-size", computedStyle.fontSize, "important");
+              el.style.setProperty("font-weight", computedStyle.fontWeight, "important");
+              el.style.setProperty("font-style", computedStyle.fontStyle, "important");
+              el.style.setProperty("line-height", computedStyle.lineHeight, "important");
+              el.style.setProperty("letter-spacing", computedStyle.letterSpacing, "important");
+              // 文字渲染优化
+              el.style.setProperty("-webkit-font-smoothing", "antialiased", "important");
+              el.style.setProperty("-moz-osx-font-smoothing", "grayscale", "important");
+              el.style.setProperty("text-rendering", "optimizeLegibility", "important");
+            }
+          });
+        }
+
+        this.processor.cleanupClonedDoc(clonedDoc, cardBackground, theme);
+        if (isVertical) {
+          this.processor.processVerticalLayout(clonedDoc);
+        }
+      },
+    };
+    return options;
+  }
+
+  /**
+   * 获取选中的导出格式
+   * @returns {string[]} 选中的格式数组，如 ['png', 'jpeg']
+   */
+  getSelectedFormats() {
+    const checkboxes = this.dom.exportFormatCheckboxes;
+    if (!checkboxes || checkboxes.length === 0) {
+      // 如果没有找到复选框，返回默认格式
+      return this.state.exportFormats || ["png"];
+    }
+
+    const selected = Array.from(checkboxes)
+      .filter((cb) => cb.checked)
+      .map((cb) => cb.value);
+
+    return selected.length > 0 ? selected : this.state.exportFormats || ["png"];
+  }
+
+  /**
+   * 下载 canvas 为指定格式
+   * @param {HTMLCanvasElement} canvas - 要下载的 canvas
+   * @param {string} format - 格式：'png', 'jpeg', 'webp'
+   */
+  downloadCanvas(canvas, format = "png") {
+    const link = document.createElement("a");
+    const timestamp = Date.now();
+    let mimeType;
+    let quality = 1.0;
+    let extension = format;
+
+    switch (format.toLowerCase()) {
+      case "png":
+        mimeType = "image/png";
+        quality = 1.0;
+        break;
+      case "jpeg":
+      case "jpg":
+        mimeType = "image/jpeg";
+        quality = 0.92; // JPEG 质量
+        extension = "jpg";
+        break;
+      case "webp":
+        mimeType = "image/webp";
+        quality = 0.9; // WebP 质量
+        break;
+      case "svg":
+        // SVG 需要特殊处理，从 DOM 生成
+        this.downloadSVG();
+        return;
+      default:
+        mimeType = "image/png";
+        extension = "png";
+    }
+
+    link.download = `book-excerpt-${timestamp}.${extension}`;
+    link.href = canvas.toDataURL(mimeType, quality);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  /**
+   * 下载 SVG 格式（需要从 DOM 生成）
+   */
+  downloadSVG() {
+    const card = this.dom.card;
+    if (!card) return;
+
+    // 克隆卡片元素
+    const clonedCard = card.cloneNode(true);
+
+    // 获取卡片样式
+    const computedStyle = window.getComputedStyle(card);
+    const cardRect = card.getBoundingClientRect();
+
+    // 创建 SVG
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    svg.setAttribute("width", `${this.state.cardWidth}`);
+    svg.setAttribute("height", `${cardRect.height * (this.state.cardWidth / cardRect.width)}`);
+
+    // 创建 foreignObject 来嵌入 HTML
+    const foreignObject = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
+    foreignObject.setAttribute("width", "100%");
+    foreignObject.setAttribute("height", "100%");
+
+    // 设置克隆卡片的样式
+    clonedCard.style.width = `${this.state.cardWidth}px`;
+    clonedCard.style.height = "auto";
+    clonedCard.style.margin = "0";
+    clonedCard.style.padding = computedStyle.padding;
+    clonedCard.style.backgroundColor = computedStyle.backgroundColor;
+    clonedCard.style.color = computedStyle.color;
+    clonedCard.style.fontFamily = computedStyle.fontFamily;
+    clonedCard.style.fontSize = computedStyle.fontSize;
+
+    foreignObject.appendChild(clonedCard);
+    svg.appendChild(foreignObject);
+
+    // 转换为字符串并下载
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.download = `book-excerpt-${Date.now()}.svg`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+}

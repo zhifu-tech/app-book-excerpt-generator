@@ -278,6 +278,15 @@ body {
   color: var(--text-color);
 }
 
+/* 卡片宽度提示信息 */
+.width-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin-top: -4px;
+  margin-bottom: var(--spacing-sm);
+}
+
 /* 卡片宽度滑块容器 */
 .width-slider-container {
   display: flex;
@@ -482,6 +491,123 @@ textarea::placeholder {
   justify-content: flex-start;
 }
 
+/* 导出格式选项组 */
+.export-format-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.export-format-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 12px 16px;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 70px;
+  position: relative;
+}
+
+.export-format-option:hover {
+  border-color: var(--text-tertiary);
+  background: var(--bg-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.export-format-option input[type="checkbox"] {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+  z-index: 2;
+  opacity: 0;
+}
+
+.export-format-option::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  transition: all var(--transition-base);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.export-format-option:has(input[type="checkbox"]:checked)::before {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.export-format-option:has(input[type="checkbox"]:checked)::after {
+  content: "✓";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  z-index: 2;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.export-format-option svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+  color: var(--text-secondary);
+  transition: color var(--transition-base);
+  margin-top: 4px;
+}
+
+.export-format-option span {
+  font-size: 12px;
+  transition: color var(--transition-base);
+}
+
+.export-format-option:has(input[type="checkbox"]:checked) svg {
+  color: var(--primary-color);
+}
+
+.export-format-option:has(input[type="checkbox"]:checked) span {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.export-format-option:has(input[type="checkbox"]:checked) {
+  border-color: var(--primary-color);
+  background: rgba(15, 23, 42, 0.05);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1);
+}
+
 .color-option {
   width: 40px; /* 优化：从 36px 改为 40px，增加触摸目标 */
   height: 40px;
@@ -534,11 +660,12 @@ textarea::placeholder {
   height: 40px;
   border-radius: var(--radius-md); /* 优化：从 sm 改为 md */
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 2px solid var(--border-color);
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .theme-option::after {
@@ -546,22 +673,28 @@ textarea::placeholder {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   pointer-events: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .theme-option:hover {
-  transform: scale(1.05);
+  transform: scale(1.08);
   border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
 }
 
 .theme-option.active {
   border-color: var(--text-color);
-  border-width: 2px;
+  border-width: 3px;
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 2px rgba(15, 23, 42, 0.1);
 }
 
 .theme-option.active::after {
-  display: none;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* Sliders */
@@ -699,7 +832,10 @@ input[type="range"]::-moz-range-track {
   min-height: 100vh;
   transition:
     width var(--transition-base),
-    margin-right var(--transition-base);
+    margin-right var(--transition-base),
+    transform var(--transition-slow),
+    opacity var(--transition-slow);
+  cursor: pointer;
 }
 
 .preview-area.resizing {
@@ -722,7 +858,7 @@ input[type="range"]::-moz-range-track {
   border-radius: 0;
   overflow: visible;
   transition: transform var(--transition-slow);
-  transform-origin: center center;
+  transform-origin: top left; /* 移动端从左上角缩放，桌面端从中心缩放 */
   background: transparent;
   display: flex;
   justify-content: center;
@@ -796,6 +932,10 @@ input[type="range"]::-moz-range-track {
   font-family: "Noto Serif SC", serif;
   border-radius: var(--radius-xl);
   animation: cardFadeIn 0.5s ease-out;
+  /* 合并 card-inner 的布局功能 */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* 确保底部信息始终在底部 */
 }
 
 @keyframes cardFadeIn {
@@ -807,13 +947,6 @@ input[type="range"]::-moz-range-track {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.card-inner {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between; /* 确保底部信息始终在底部 */
 }
 
 .card-header {
@@ -1069,16 +1202,47 @@ input[type="range"]::-moz-range-track {
     overflow: hidden;
   }
 
-  /* 移动端预览区域始终全屏 */
+  /* 移动端预览区域：默认全屏样式，通过 scale(0.4) 缩小为缩略图 */
   .preview-area {
-    position: fixed;
-    top: 0;
-    left: 0;
+    /* 默认全屏样式 */
+    position: fixed !important;
     width: 100vw !important;
-    height: 100vh !important;
-    margin-right: 0 !important;
-    z-index: 100;
+    height: 80vh !important; /* 固定的缩略图高度 80vh */
+    min-height: 80vh !important;
+    max-height: 80vh !important; /* 最大高度为屏幕高度的 80% */
+    padding: var(--spacing-xl) var(--spacing-md) !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: rgba(0, 0, 0, 0.5) !important; /* 半透明背景 */
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important; /* 垂直居中显示 */
+
+    /* 默认缩略图状态：scale(0.4)，位置在右下角 */
+    /* 使用 transform-origin: top left 配合绝对坐标定位 */
+    transform: scale(0.4) !important;
+    transform-origin: top left !important;
+    z-index: 199 !important;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    border: 2px solid var(--border-color);
+    pointer-events: auto;
+    cursor: pointer;
+    opacity: 1;
+
+    /* 位置由 JS 动态设置（右下角，下载按钮之上） */
+    bottom: auto !important;
+    right: auto !important;
+    left: auto !important;
+    top: auto !important;
   }
+
+  .preview-area::before {
+    display: none !important; /* 移除背景装饰 */
+  }
+
+  /* 注意：.preview-fullscreen 类仅作为状态标记，样式完全由 JavaScript 控制 */
 
   .sidebar {
     position: fixed;
@@ -1148,24 +1312,6 @@ input[type="range"]::-moz-range-track {
     display: none; /* 移动端不显示侧边栏切换按钮 */
   }
 
-  .floating-preview-container:hover:not(.dragging) {
-    transform: translateY(-2px);
-  }
-
-  .floating-preview-container.dragging {
-    transition: none;
-    cursor: grabbing;
-  }
-
-  .floating-preview-container:active:not(.dragging) {
-    transform: translateY(0);
-  }
-
-  .preview-thumbnail {
-    height: 100%;
-    max-height: none; /* 移除最大高度限制 */
-  }
-
   /* 移动端显示 FAB 按钮 */
   .floating-actions {
     display: flex;
@@ -1186,37 +1332,14 @@ input[type="range"]::-moz-range-track {
     display: none;
   }
 
-  /* Preview Area - Full screen overlay */
-  .preview-area {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    margin-right: 0 !important;
-    background: transparent; /* 移除渐变背景，与桌面端一致 */
-    z-index: 100;
-    padding: var(--spacing-xl) var(--spacing-md);
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .preview-area.active {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Preview wrapper for animation */
+  /* Preview wrapper for animation - 移动端默认缩小 */
   .preview-wrapper {
-    width: 100%;
-    max-width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
     display: flex;
+    transform-origin: top left !important;
     justify-content: center;
     align-items: flex-start; /* 改为 flex-start，确保从顶部开始显示 */
     padding: var(--spacing-md) 0; /* 添加上下内边距，确保头部可见 */
@@ -1386,97 +1509,41 @@ select {
   display: flex;
 }
 
-/* Floating Preview Button (移动端) */
-.floating-preview-container {
-  position: fixed;
-  bottom: calc(var(--spacing-lg) + 72px); /* 在 FAB 按钮之上，72px = 56px(FAB高度) + 16px(间距) */
-  left: auto; /* 改为 auto，使用 right 定位 */
-  right: var(--spacing-xl); /* 与下载按钮右对齐，确保右边露出 */
-  z-index: 199; /* 初始 z-index，移动到顶部时会提升到 9999 */
-  width: 160px;
-  height: auto;
-  max-width: 160px;
-  max-height: 50vh; /* 最大高度为屏幕高度的1/2 */
-  transition:
-    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
-    top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
-    bottom 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
-    right 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
-  -webkit-tap-highlight-color: transparent;
-  touch-action: auto; /* 允许触摸滚动 */
-  user-select: none; /* 防止文本选择 */
-  cursor: pointer;
-}
-
-
-.floating-preview-container:hover:not(.dragging) {
-  transform: translateY(-2px);
-}
-
-.floating-preview-container.dragging {
-  transition: none; /* 拖动时禁用过渡 */
-  cursor: grabbing;
-  z-index: 1001; /* 拖动时提升层级 */
-}
-
-/* 预览模式下的样式 */
-.floating-preview-container.preview-mode {
-  cursor: pointer; /* 预览模式下显示指针光标 */
-  z-index: 1001; /* 确保在预览视图之上 */
-  pointer-events: none; /* 预览模式下不可点击 */
-}
-
-.floating-preview-container.preview-mode:hover {
-  opacity: 0.7 !important; /* 悬停时稍微提高透明度 */
-}
-
-.floating-preview-container:active:not(.dragging) {
-  transform: translateY(0);
-}
-
-.preview-thumbnail {
-  width: 100%;
-  height: 100%;
-  background: #fff;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-xl);
-  position: relative;
-  border: 2px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 1;
-  pointer-events: none; /* 让点击事件穿透到按钮 */
-  z-index: 0;
-}
-
-.preview-thumbnail canvas {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  opacity: 1; /* 确保canvas没有透明度 */
-  pointer-events: none; /* 让点击事件穿透到按钮 */
-}
-
 /* Desktop Styles - 颠覆性设计 */
 @media screen and (min-width: 769px) {
-  .floating-preview-container {
-    display: none; /* 桌面端隐藏浮动预览容器 */
-  }
-
   /* 桌面端：侧边栏始终显示，不可收起 */
   .sidebar {
     transform: translateX(0);
   }
 
-  /* 预览区域全屏显示 - 根据侧边栏宽度动态调整 */
+  /* 桌面端：预览区域正常布局 */
   .preview-area {
-    padding: var(--spacing-xl);
-    width: calc(100% - var(--sidebar-width));
-    margin-right: var(--sidebar-width);
+    position: relative !important;
+    width: calc(100% - var(--sidebar-width)) !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    padding: var(--spacing-2xl) !important;
+    margin-right: var(--sidebar-width) !important;
+    bottom: auto !important;
+    right: auto !important;
+    left: auto !important;
+    top: auto !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    z-index: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .preview-area::before {
+    display: block !important; /* 恢复背景装饰 */
+  }
+
+  .preview-wrapper {
+    transform: scale(1) !important;
+    transform-origin: center center !important;
   }
 
   /* 侧边栏不可收起，无需处理 collapsed 状态 */
