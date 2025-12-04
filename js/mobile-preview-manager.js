@@ -101,6 +101,12 @@ export class MobilePreviewManager {
     Object.entries(borderProps).forEach(([key, value]) => {
       element.style.setProperty(key, value, "important");
     });
+
+    // 确保元素可见（全屏预览时必须可见）
+    if (isFullscreen) {
+      element.style.setProperty("opacity", "1", "important");
+      element.style.setProperty("visibility", "visible", "important");
+    }
   }
 
   _setupTransition(previewArea, sidebar) {
@@ -145,6 +151,7 @@ export class MobilePreviewManager {
   _prepareAnimation(previewArea, sidebar) {
     previewArea.style.transition = "none";
     previewArea.style.opacity = "1";
+    previewArea.style.visibility = "visible";
     previewArea.style.pointerEvents = "auto";
     sidebar.style.transition = "none";
   }

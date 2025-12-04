@@ -1229,7 +1229,10 @@ input[type="range"]::-moz-range-track {
     border: 2px solid var(--border-color);
     pointer-events: auto;
     cursor: pointer;
-    opacity: 1;
+
+    /* 初始隐藏，等 JavaScript 设置好位置后再显示，避免闪现 */
+    opacity: 0 !important;
+    visibility: hidden !important;
 
     /* 位置由 JS 动态设置（右下角，下载按钮之上） */
     bottom: auto !important;

@@ -136,6 +136,10 @@ export class ThumbnailManager {
     ["border", "border-radius", "box-shadow"].forEach((prop) => {
       previewArea.style.setProperty(prop, "", "important");
     });
+
+    // 显示元素（如果之前是隐藏的）
+    previewArea.style.setProperty("opacity", "1", "important");
+    previewArea.style.setProperty("visibility", "visible", "important");
   }
 
   /**
