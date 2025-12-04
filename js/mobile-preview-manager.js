@@ -277,9 +277,6 @@ export class MobilePreviewManager {
         this.closePreview(previewArea);
       }
     });
-
-    // 滑动关闭
-    this.initSwipeToClose(previewArea);
   }
 
   togglePreview(previewArea) {
@@ -376,32 +373,5 @@ export class MobilePreviewManager {
     setTimeout(() => {
       this._cleanupAfterAnimation(previewArea, sidebar, thumbnailState, false);
     }, this.ANIMATION_DURATION);
-  }
-
-  initSwipeToClose(previewArea) {
-    let touchStartX = 0;
-    let touchEndX = 0;
-
-    previewArea.addEventListener(
-      "touchstart",
-      (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-      },
-      { passive: true }
-    );
-
-    previewArea.addEventListener(
-      "touchend",
-      (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        const swipeThreshold = 100;
-        const swipeDistance = touchEndX - touchStartX;
-
-        if (swipeDistance > swipeThreshold && touchStartX < 50) {
-          this.closePreview(previewArea);
-        }
-      },
-      { passive: true }
-    );
   }
 }
