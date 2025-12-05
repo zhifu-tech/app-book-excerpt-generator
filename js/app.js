@@ -258,7 +258,6 @@ export class BookExcerptApp {
         const selectedFormats = Array.from(this.dom.exportFormatCheckboxes || [])
           .filter((cb) => cb.checked)
           .map((cb) => cb.value);
-        
         // 至少保留一个格式选中
         if (selectedFormats.length === 0) {
           checkbox.checked = true;

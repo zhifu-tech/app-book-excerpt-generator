@@ -67,7 +67,76 @@ export class DownloadManager {
         targetHeight,
         finalScale
       );
-      const canvas = await html2canvas(card, options);
+
+      // 移动端特殊处理：将卡片克隆到干净的临时容器中，避免父元素背景影响
+      // 这是解决移动端白色蒙层问题的唯一有效方案
+      const isMobile = Utils.isMobile();
+      let tempContainer = null;
+      let clonedCardForCapture = card;
+
+      if (isMobile) {
+        // 创建临时容器（完全干净的 DOM 环境）
+        tempContainer = document.createElement("div");
+        tempContainer.style.cssText = `
+          position: absolute;
+          left: -9999px;
+          top: 0;
+          width: ${targetWidth}px;
+          height: ${targetHeight}px;
+          background: transparent;
+          padding: 0;
+          margin: 0;
+          border: none;
+        `;
+        document.body.appendChild(tempContainer);
+
+        // 克隆卡片到临时容器
+        clonedCardForCapture = card.cloneNode(true);
+        clonedCardForCapture.style.cssText = `
+          transform: none !important;
+          position: relative !important;
+          margin: 0 !important;
+          width: ${targetWidth}px !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        `;
+
+        // 应用卡片背景
+        if (currentTheme?.background) {
+          clonedCardForCapture.style.setProperty(
+            "background",
+            currentTheme.background,
+            "important"
+          );
+        } else if (currentTheme?.color) {
+          clonedCardForCapture.style.setProperty(
+            "background-color",
+            currentTheme.color,
+            "important"
+          );
+        } else if (
+          cardBackground?.backgroundColor &&
+          cardBackground.backgroundColor !== "transparent"
+        ) {
+          clonedCardForCapture.style.setProperty(
+            "background-color",
+            cardBackground.backgroundColor,
+            "important"
+          );
+        } else {
+          clonedCardForCapture.style.setProperty("background-color", "#fff", "important");
+        }
+
+        tempContainer.appendChild(clonedCardForCapture);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      const canvas = await html2canvas(clonedCardForCapture, options);
+
+      // 清理临时容器
+      if (tempContainer?.parentNode) {
+        tempContainer.parentNode.removeChild(tempContainer);
+      }
 
       // 恢复样式
       this.restoreCardStyles(card, originalStyles);
@@ -157,7 +226,7 @@ export class DownloadManager {
     // 使用统一的预览处理器获取背景色
     const backgroundColor = this.processor.getBackgroundColor(cardBackground, theme);
 
-    const options = {
+    return {
       scale: finalScale,
       useCORS: true,
       backgroundColor: backgroundColor,
@@ -166,11 +235,8 @@ export class DownloadManager {
       willReadFrequently: false,
       removeContainer: false,
       imageTimeout: 15000,
-      // 使用设置的宽度和高度（实际尺寸）
-      // scale 参数会根据设备 DPI 自动调整渲染质量，但不改变最终 canvas 尺寸
       width: targetWidth,
       height: targetHeight,
-      // 使用统一的预览处理器，确保与缩略图完全一致
       onclone: (clonedDoc) => {
         // 设置克隆文档的 body 和 html 为桌面端尺寸，避免移动端媒体查询生效
         const clonedBody = clonedDoc.body;
@@ -219,13 +285,13 @@ export class DownloadManager {
           });
         }
 
+        // 使用统一的预览处理器清理克隆文档
         this.processor.cleanupClonedDoc(clonedDoc, cardBackground, theme);
         if (isVertical) {
           this.processor.processVerticalLayout(clonedDoc);
         }
       },
     };
-    return options;
   }
 
   /**
