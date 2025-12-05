@@ -47,10 +47,11 @@
 
 ## 技术栈
 
-- HTML5
-- CSS3（使用 CSS 变量和 Flexbox）
-- JavaScript（ES6+ 模块化）
-- html2canvas（用于图片导出）
+- **HTML5** - 语义化标记
+- **CSS3** - 使用 CSS 变量和 Flexbox，响应式设计
+- **JavaScript (ES6+)** - 模块化架构，使用 ES6 模块
+- **html2canvas** - 用于图片导出
+- **JSDoc** - 类型注释和文档生成
 
 ## 文件结构
 
@@ -203,6 +204,16 @@ HTML 文件使用模块化入口：
 <script type="module" src="js/index.js"></script>
 ```
 
+### 代码质量
+
+项目采用专业的前端工程化实践：
+
+1. **JSDoc 类型注释**：完整的类型定义和方法注释，提升 IDE 支持和代码可维护性
+2. **模块化架构**：清晰的模块划分，职责单一，易于维护和扩展
+3. **常量枚举**：避免魔法字符串，提供类型安全
+4. **错误处理**：统一的错误处理机制，提升健壮性
+5. **代码规范**：统一的命名和注释规范
+
 ### 模块化优势
 
 1. **模块化**：每个文件职责单一，易于维护
@@ -211,11 +222,34 @@ HTML 文件使用模块化入口：
 4. **团队协作**：多人开发时减少代码冲突
 5. **代码复用**：模块可以在其他项目中复用
 
+### 代码结构
+
+```
+js/
+├── index.js              # 入口文件
+├── app.js               # 主应用类
+├── config.js            # 配置常量和数据
+├── state.js             # 状态管理
+├── utils.js             # 工具函数
+├── dom-manager.js       # DOM元素管理
+├── renderer.js          # UI渲染器
+├── preview-manager.js   # 预览管理器
+├── preview-processor.js # 预览处理器
+├── thumbnail-manager.js # 缩略图管理器
+├── mobile-preview-manager.js # 移动端预览管理器
+└── download-manager.js  # 下载管理器
+```
+
 ### 生产环境建议
 
 - 使用构建工具（如 Vite、Webpack）打包成单个或少量文件
 - 启用代码压缩和优化
 - 利用浏览器缓存机制
+- 考虑使用 TypeScript 进行类型安全（可选）
+
+### 代码优化
+
+详细的优化说明请参考 [OPTIMIZATION.md](./OPTIMIZATION.md)
 
 ## 许可证
 

@@ -2,9 +2,18 @@
  * DOM 元素管理
  * 按需加载 DOM 元素，提高初始化性能
  * 支持直接属性访问：this.dom.quoteInput
+ * @module dom-manager
  */
 
-// 元素查询映射表
+/**
+ * @typedef {() => HTMLElement | null} ElementSelector
+ * @typedef {() => NodeListOf<HTMLElement>} NodeListSelector
+ */
+
+/**
+ * 元素查询映射表
+ * @type {Record<string, ElementSelector | NodeListSelector>}
+ */
 const SELECTORS = {
   // 输入元素
   quoteInput: () => document.getElementById("quote-text"),
@@ -39,9 +48,16 @@ const SELECTORS = {
   downloadFab: () => document.getElementById("download-fab"),
 };
 
+/**
+ * DOM 元素管理器
+ * 使用 Proxy 实现按需加载和直接属性访问
+ */
 export class DOMManager {
+  /**
+   * 创建 DOM 管理器实例
+   */
   constructor() {
-    // 元素缓存
+    /** @type {Record<string, HTMLElement | NodeListOf<HTMLElement> | null>} 元素缓存 */
     this._cache = {};
 
     // 返回代理对象，支持直接属性访问
@@ -93,8 +109,9 @@ export class DOMManager {
 
   /**
    * 内部方法：获取 DOM 元素（按需加载）
+   * @private
    * @param {string} id - 元素标识符
-   * @returns {HTMLElement|null} DOM 元素
+   * @returns {HTMLElement | NodeListOf<HTMLElement> | null | undefined} DOM 元素
    */
   _getElement(id) {
     // 如果已缓存，直接返回

@@ -1,5 +1,6 @@
 /**
  * 主应用
+ * @module app
  */
 import { AppState } from "./state.js";
 import { DOMManager } from "./dom-manager.js";
@@ -11,17 +12,34 @@ import { MobilePreviewManager } from "./mobile-preview-manager.js";
 import { CONFIG } from "./config.js";
 import { Utils } from "./utils.js";
 
+/**
+ * 书摘应用主类
+ * 整合所有功能模块，管理应用生命周期
+ */
 export class BookExcerptApp {
+  /**
+   * 创建应用实例
+   */
   constructor() {
+    /** @type {AppState} 应用状态 */
     this.state = new AppState();
+    /** @type {DOMManager} DOM 管理器 */
     this.dom = new DOMManager();
+    /** @type {Renderer} UI 渲染器 */
     this.renderer = new Renderer(this.dom, this.state);
+    /** @type {PreviewManager} 预览管理器 */
     this.preview = new PreviewManager(this.dom, this.state);
+    /** @type {ThumbnailManager} 缩略图管理器 */
     this.thumbnail = new ThumbnailManager(this.dom, this.state);
-    this.download = null; // 将在init中初始化
+    /** @type {DownloadManager | null} 下载管理器（在 init 中初始化） */
+    this.download = null;
+    /** @type {MobilePreviewManager} 移动端预览管理器 */
     this.mobilePreview = new MobilePreviewManager(this.dom, this.thumbnail, this.state);
   }
 
+  /**
+   * 初始化应用
+   */
   init() {
     // 设置日期
     const dateEl = this.dom.currentDate;
@@ -95,6 +113,10 @@ export class BookExcerptApp {
     this.bindFloatingActions();
   }
 
+  /**
+   * 初始化侧边栏宽度调整功能
+   * @private
+   */
   initSidebarResizer() {
     const sidebar = this.dom.sidebar;
     const resizer = this.dom.sidebarResizer;
@@ -200,6 +222,7 @@ export class BookExcerptApp {
 
   /**
    * 初始化导出格式选中状态
+   * @private
    */
   initExportFormats() {
     const checkboxes = this.dom.exportFormatCheckboxes;
@@ -212,6 +235,10 @@ export class BookExcerptApp {
     });
   }
 
+  /**
+   * 绑定浮动操作按钮事件
+   * @private
+   */
   bindFloatingActions() {
     const downloadFab = this.dom.downloadFab;
     const downloadBtn = this.dom.downloadBtn;
@@ -223,6 +250,10 @@ export class BookExcerptApp {
     }
   }
 
+  /**
+   * 绑定所有事件监听器
+   * @private
+   */
   bindEvents() {
     const { quoteInput, bookInput, authorInput, sealInput, downloadBtn } = this.dom.elements;
 
@@ -276,7 +307,8 @@ export class BookExcerptApp {
 
   /**
    * 初始化滚动监听
-   * 诉求：当用户在侧边栏中滑动时，缩略图自动移动到左上角（顶部），避免遮挡操作区域
+   * 当用户在侧边栏中滑动时，缩略图自动移动到顶部，避免遮挡操作区域
+   * @private
    */
   initScrollListener() {
     // 只在移动端初始化

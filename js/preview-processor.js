@@ -283,6 +283,7 @@ export class PreviewProcessor {
 
   /**
    * 统一的竖排布局处理方法
+   * @param {Document|Object} clonedDoc - 克隆的文档对象，或包含 getElementById 和 createElement 方法的虚拟文档对象
    */
   processVerticalLayout(clonedDoc) {
     const clonedCard = clonedDoc.getElementById("card-preview");
@@ -316,7 +317,12 @@ export class PreviewProcessor {
     text = text.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
     const chars = text.split("");
 
-    const maxHeight = 450;
+    // 动态计算最大高度：使用卡片实际高度，而不是固定值
+    // 获取卡片或 card-body 的实际高度
+    const cardHeight = clonedCard.offsetHeight || clonedCard.scrollHeight;
+    const bodyHeight = clonedBody.offsetHeight || clonedBody.scrollHeight;
+    // 减去头部和底部信息的高度（日期、书名、作者、印章等），大约预留 150px
+    const maxHeight = Math.max(300, (cardHeight || bodyHeight) - 150);
     const charsPerColumn = Math.floor(maxHeight / lineHeightVal) || 10;
 
     const textContainer = clonedDoc.createElement("div");

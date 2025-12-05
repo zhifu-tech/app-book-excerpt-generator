@@ -1,18 +1,37 @@
 /**
  * 下载管理器
+ * @module download-manager
  */
-import { CONFIG } from "./config.js";
+import { CONFIG, DEFAULT_EXPORT_FORMAT } from "./config.js";
 import { Utils } from "./utils.js";
 import { PreviewProcessor } from "./preview-processor.js";
 
+/**
+ * 下载管理器类
+ * 负责图片导出和下载功能
+ */
 export class DownloadManager {
+  /**
+   * 创建下载管理器实例
+   * @param {DOMManager} dom - DOM 管理器
+   * @param {AppState} state - 应用状态
+   * @param {PreviewManager} previewManager - 预览管理器
+   */
   constructor(dom, state, previewManager) {
+    /** @type {DOMManager} */
     this.dom = dom;
+    /** @type {AppState} */
     this.state = state;
+    /** @type {PreviewManager} */
     this.previewManager = previewManager;
-    this.processor = new PreviewProcessor(state); // 使用统一的预览处理器
+    /** @type {PreviewProcessor} */
+    this.processor = new PreviewProcessor(state);
   }
 
+  /**
+   * 下载图片（支持多格式）
+   * @returns {Promise<void>}
+   */
   async download() {
     const card = this.dom.card;
     const downloadBtn = this.dom.downloadBtn;
@@ -76,17 +95,19 @@ export class DownloadManager {
 
       if (isMobile) {
         // 创建临时容器（完全干净的 DOM 环境）
+        // 注意：不设置固定高度，让容器自适应内容高度，避免底部空白
         tempContainer = document.createElement("div");
         tempContainer.style.cssText = `
           position: absolute;
           left: -9999px;
           top: 0;
           width: ${targetWidth}px;
-          height: ${targetHeight}px;
+          min-height: ${targetHeight}px;
           background: transparent;
           padding: 0;
           margin: 0;
           border: none;
+          overflow: visible;
         `;
         document.body.appendChild(tempContainer);
 
@@ -97,6 +118,8 @@ export class DownloadManager {
           position: relative !important;
           margin: 0 !important;
           width: ${targetWidth}px !important;
+          min-height: auto !important;
+          height: auto !important;
           opacity: 1 !important;
           visibility: visible !important;
         `;
@@ -128,10 +151,44 @@ export class DownloadManager {
         }
 
         tempContainer.appendChild(clonedCardForCapture);
+
+        // 等待 DOM 渲染完成
         await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // 对于竖排布局，需要在临时容器中直接处理
+        // 因为临时容器中的卡片不在 html2canvas 的 clonedDoc 中
+        if (this.state.layout === "vertical") {
+          // 创建一个虚拟的 document 对象，用于 processVerticalLayout
+          const virtualDoc = {
+            getElementById: (id) => {
+              if (id === "card-preview") return clonedCardForCapture;
+              return null;
+            },
+            createElement: (tag) => document.createElement(tag),
+            defaultView: window,
+          };
+
+          // 处理竖排布局
+          this.processor.processVerticalLayout(virtualDoc);
+
+          // 等待竖排布局渲染完成
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        // 重新计算实际高度（处理竖排布局后）
+        const actualHeight = clonedCardForCapture.offsetHeight || clonedCardForCapture.scrollHeight;
+        if (actualHeight > 0) {
+          // 更新临时容器高度为实际内容高度
+          tempContainer.style.height = `${actualHeight}px`;
+        }
       }
 
-      const canvas = await html2canvas(clonedCardForCapture, options);
+      // 对于移动端临时容器，不设置固定 height，让 html2canvas 自动计算
+      const canvasOptions = isMobile
+        ? { ...options, height: undefined } // 移除固定高度，让 html2canvas 自动计算
+        : options;
+
+      const canvas = await html2canvas(clonedCardForCapture, canvasOptions);
 
       // 清理临时容器
       if (tempContainer?.parentNode) {
@@ -161,7 +218,7 @@ export class DownloadManager {
 
       this.setLoadingState(downloadBtn, false, true);
     } catch (err) {
-      alert("生成图片失败：" + (err.message || "未知错误") + "\n请重试或检查浏览器控制台");
+      this._showError(`生成图片失败：${err.message || "未知错误"}\n请重试或检查浏览器控制台`);
       this.restoreCardStyles(card, originalStyles);
       this.previewManager.setZoom(originalZoom);
       this.setLoadingState(downloadBtn, false);
@@ -200,6 +257,23 @@ export class DownloadManager {
     }
   }
 
+  /**
+   * 显示错误信息
+   * @private
+   * @param {string} message - 错误消息
+   */
+  _showError(message) {
+    // 优先使用 console.error，生产环境可以替换为 toast 通知
+    console.error(message);
+    alert(message);
+  }
+
+  /**
+   * 保存卡片原始样式
+   * @private
+   * @param {HTMLElement} card - 卡片元素
+   * @returns {Record<string, string>} 样式对象
+   */
   saveCardStyles(card) {
     return {
       transform: card.style.transform,
@@ -209,10 +283,21 @@ export class DownloadManager {
     };
   }
 
+  /**
+   * 恢复卡片原始样式
+   * @private
+   * @param {HTMLElement} card - 卡片元素
+   * @param {Record<string, string>} styles - 样式对象
+   */
   restoreCardStyles(card, styles) {
     Object.assign(card.style, styles);
   }
 
+  /**
+   * 准备卡片用于捕获（重置样式）
+   * @private
+   * @param {HTMLElement} card - 卡片元素
+   */
   prepareCardForCapture(card) {
     card.style.transform = "none";
     card.style.boxShadow = "none";
@@ -257,6 +342,10 @@ export class DownloadManager {
           clonedCard.style.setProperty("width", `${targetWidth}px`, "important");
           clonedCard.style.setProperty("min-width", `${targetWidth}px`, "important");
           clonedCard.style.setProperty("max-width", `${targetWidth}px`, "important");
+          // 高度设置为 auto，让内容自适应，避免底部空白
+          clonedCard.style.setProperty("height", "auto", "important");
+          clonedCard.style.setProperty("min-height", "auto", "important");
+          clonedCard.style.setProperty("max-height", "none", "important");
 
           // 强制应用文字渲染优化样式
           clonedCard.style.setProperty("-webkit-font-smoothing", "antialiased", "important");
@@ -315,9 +404,9 @@ export class DownloadManager {
   /**
    * 下载 canvas 为指定格式
    * @param {HTMLCanvasElement} canvas - 要下载的 canvas
-   * @param {string} format - 格式：'png', 'jpeg', 'webp'
+   * @param {string} [format='png'] - 格式：'png', 'jpeg', 'webp'
    */
-  downloadCanvas(canvas, format = "png") {
+  downloadCanvas(canvas, format = DEFAULT_EXPORT_FORMAT) {
     const link = document.createElement("a");
     const timestamp = Date.now();
     let mimeType;
@@ -357,6 +446,7 @@ export class DownloadManager {
 
   /**
    * 下载 SVG 格式（需要从 DOM 生成）
+   * @private
    */
   downloadSVG() {
     const card = this.dom.card;
