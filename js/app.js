@@ -9,7 +9,7 @@ import { PreviewManager } from "./preview-manager.js";
 import { ThumbnailManager } from "./thumbnail-manager.js";
 import { DownloadManager } from "./download-manager.js";
 import { MobilePreviewManager } from "./mobile-preview-manager.js";
-import { CONFIG } from "./config.js";
+import { CONFIG, initConfig } from "./config.js";
 import { Utils } from "./utils.js";
 
 /**
@@ -40,7 +40,10 @@ export class BookExcerptApp {
   /**
    * 初始化应用
    */
-  init() {
+  async init() {
+    // 从服务器加载配置（自动检测环境）
+    await initConfig();
+
     // 设置日期
     const dateEl = this.dom.currentDate;
     if (dateEl) {

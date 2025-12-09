@@ -2,7 +2,7 @@
  * 统一预览处理器
  * 确保缩略图、移动预览、导出都使用完全相同的处理逻辑，保证体验一致
  */
-import { THEMES } from "./config.js";
+import { getThemes } from "./config.js";
 
 export class PreviewProcessor {
   constructor(state) {
@@ -13,7 +13,7 @@ export class PreviewProcessor {
    * 获取卡片背景样式
    */
   getCardBackground(card) {
-    const currentTheme = THEMES.find((t) => t.id === this.state.theme);
+    const currentTheme = getThemes().find((t) => t.id === this.state.theme);
     const cardComputedStyle = window.getComputedStyle(card);
     return {
       background: currentTheme?.background || cardComputedStyle.background,

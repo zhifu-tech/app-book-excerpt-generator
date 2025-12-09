@@ -5,6 +5,7 @@
 import { CONFIG, DEFAULT_EXPORT_FORMAT } from "./config.js";
 import { Utils } from "./utils.js";
 import { PreviewProcessor } from "./preview-processor.js";
+import { logger } from "./utils/logger.js";
 
 /**
  * 下载管理器类
@@ -263,8 +264,7 @@ export class DownloadManager {
    * @param {string} message - 错误消息
    */
   _showError(message) {
-    // 优先使用 console.error，生产环境可以替换为 toast 通知
-    console.error(message);
+    logger.error(message);
     alert(message);
   }
 

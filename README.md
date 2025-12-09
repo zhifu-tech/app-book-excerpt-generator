@@ -52,6 +52,8 @@
 - **JavaScript (ES6+)** - 模块化架构，使用 ES6 模块
 - **html2canvas** - 用于图片导出
 - **JSDoc** - 类型注释和文档生成
+- **ESLint** - 代码质量检查
+- **Prettier** - 代码格式化
 
 ## 文件结构
 
@@ -61,18 +63,34 @@ book-excerpt-generator/
 ├── js/                        # JavaScript 模块
 │   ├── index.js              # 入口文件
 │   ├── app.js                # 主应用
-│   ├── config.js             # 配置常量和数据
-│   ├── utils.js              # 工具函数
+│   ├── config.js             # 配置管理
+│   ├── config-service.js     # 配置服务（API 调用）
 │   ├── state.js              # 状态管理
+│   ├── utils.js              # 工具函数
+│   ├── utils/
+│   │   └── logger.js         # 日志管理
+│   ├── constants/
+│   │   └── index.js          # 常量定义
+│   ├── types/
+│   │   └── index.js          # 类型定义（JSDoc）
 │   ├── dom-manager.js        # DOM元素管理
 │   ├── renderer.js           # UI渲染器
-│   ├── preview-manager.js   # 预览管理器
+│   ├── preview-manager.js    # 预览管理器
 │   ├── preview-processor.js # 统一预览处理器
 │   ├── thumbnail-manager.js # 缩略图管理器
 │   ├── mobile-preview-manager.js # 移动端预览管理器
 │   └── download-manager.js   # 下载管理器
 ├── style.css                 # 样式文件
+├── package.json              # 项目配置
+├── .eslintrc.json            # ESLint 配置
+├── .prettierrc               # Prettier 配置
+├── jsconfig.json             # TypeScript/JSDoc 配置
 ├── README.md                 # 说明文档
+├── docs/                     # 文档目录
+│   ├── API_DOCUMENTATION.md  # API 文档
+│   ├── DEVELOPMENT.md        # 开发指南
+│   ├── OPTIMIZATION.md       # 代码优化说明
+│   └── PROJECT_STRUCTURE.md  # 项目结构说明
 └── screenshots/              # 截图目录
     ├── desktop.png           # 桌面端预览截图
     ├── mobile-1.png          # 移动端预览截图 - 编辑界面
@@ -210,9 +228,11 @@ HTML 文件使用模块化入口：
 
 1. **JSDoc 类型注释**：完整的类型定义和方法注释，提升 IDE 支持和代码可维护性
 2. **模块化架构**：清晰的模块划分，职责单一，易于维护和扩展
-3. **常量枚举**：避免魔法字符串，提供类型安全
-4. **错误处理**：统一的错误处理机制，提升健壮性
-5. **代码规范**：统一的命名和注释规范
+3. **常量管理**：统一的常量定义，避免魔法字符串，提供类型安全
+4. **日志管理**：统一的日志输出接口，支持不同环境下的日志级别控制
+5. **错误处理**：统一的错误处理机制，提升健壮性
+6. **代码规范**：ESLint + Prettier 确保代码风格一致
+7. **类型安全**：JSDoc 类型系统提供编译时类型检查
 
 ### 模块化优势
 
@@ -240,6 +260,31 @@ js/
 └── download-manager.js  # 下载管理器
 ```
 
+### 开发工具
+
+项目包含完整的开发工具配置：
+
+```bash
+# 安装依赖
+npm install
+
+# 代码检查
+npm run lint
+
+# 自动修复代码规范问题
+npm run lint:fix
+
+# 代码格式化
+npm run format
+
+# 检查代码格式
+npm run format:check
+```
+
+### 开发指南
+
+详细的开发指南请参考 [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)
+
 ### 生产环境建议
 
 - 使用构建工具（如 Vite、Webpack）打包成单个或少量文件
@@ -249,7 +294,7 @@ js/
 
 ### 代码优化
 
-详细的优化说明请参考 [OPTIMIZATION.md](./OPTIMIZATION.md)
+详细的优化说明请参考 [docs/OPTIMIZATION.md](./docs/OPTIMIZATION.md)
 
 ## 许可证
 

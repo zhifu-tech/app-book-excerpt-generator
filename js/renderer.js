@@ -2,9 +2,9 @@
  * 渲染器
  */
 import {
-  THEMES,
-  FONTS,
-  FONT_COLORS,
+  getThemes,
+  getFonts,
+  getFontColors,
   FONT_SIZE_MIN,
   FONT_SIZE_MAX,
   FONT_SIZE_STEP,
@@ -24,7 +24,7 @@ export class Renderer {
     if (!grid) return;
 
     grid.innerHTML = "";
-    THEMES.forEach((theme) => {
+    getThemes().forEach((theme) => {
       const div = document.createElement("div");
       div.className = `theme-option ${theme.id === this.state.theme ? "active" : ""}`;
       div.dataset.theme = theme.id;
@@ -48,7 +48,7 @@ export class Renderer {
     if (!grid) return;
 
     grid.innerHTML = "";
-    FONT_COLORS.forEach((color) => {
+    getFontColors().forEach((color) => {
       const div = document.createElement("button");
       div.className = `color-option ${color.value === this.state.fontColor ? "active" : ""}`;
       div.dataset.color = color.value;
@@ -65,7 +65,7 @@ export class Renderer {
     if (!grid) return;
 
     grid.innerHTML = "";
-    FONTS.forEach((font) => {
+    getFonts().forEach((font) => {
       const btn = document.createElement("button");
       btn.className = `font-option-btn ${font.value === this.state.font ? "active" : ""}`;
       btn.dataset.font = font.value;

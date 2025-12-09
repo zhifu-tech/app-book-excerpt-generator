@@ -1,0 +1,30 @@
+{
+  "name": "book-excerpt-generator",
+  "version": "1.0.0",
+  "description": "一个简单易用的书摘卡片生成工具，可以快速生成精美的书摘图片",
+  "type": "module",
+  "main": "js/index.js",
+  "scripts": {
+    "lint": "eslint js/**/*.js",
+    "lint:fix": "eslint js/**/*.js --fix",
+    "format": "prettier --write \"js/**/*.js\" \"*.html\" \"*.css\"",
+    "format:check": "prettier --check \"js/**/*.js\" \"*.html\" \"*.css\"",
+    "dev": "echo '请使用本地服务器运行，例如: python -m http.server 8000'",
+    "build": "echo '当前为纯前端项目，无需构建。如需优化，可考虑使用 Vite 或 Webpack'"
+  },
+  "keywords": [
+    "book-excerpt",
+    "card-generator",
+    "image-export",
+    "html2canvas"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
