@@ -25,4 +25,16 @@ npm-debug.log*
 dist/
 build/
 
-
+# SSL Certificates and Private Keys (NEVER commit these!)
+*.key
+*.csr
+*.pem
+*.crt
+*.p12
+*.pfx
+*_nginx/
+*_ssl/
+*_certs/
+certificates/
+ssl/
+certs/
