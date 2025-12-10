@@ -57,7 +57,7 @@
 
 ## 文件结构
 
-```
+```sh
 book-excerpt-generator/
 ├── index.html                 # 主页面
 ├── js/                        # JavaScript 模块
@@ -88,9 +88,11 @@ book-excerpt-generator/
 ├── README.md                 # 说明文档
 ├── docs/                     # 文档目录
 │   ├── API_DOCUMENTATION.md  # API 文档
-│   ├── DEVELOPMENT.md        # 开发指南
-│   ├── OPTIMIZATION.md       # 代码优化说明
-│   └── PROJECT_STRUCTURE.md  # 项目结构说明
+│   └── DEPLOY.md             # 部署指南
+├── scripts/                  # 部署脚本
+│   ├── book-excerpt.sh      # 统一管理脚本（包含所有部署和管理功能）
+│   ├── nginx.conf           # Nginx 配置文件
+│   └── book-excerpt.zhifu.tech_nginx/  # SSL 证书目录
 └── screenshots/              # 截图目录
     ├── desktop.png           # 桌面端预览截图
     ├── mobile-1.png          # 移动端预览截图 - 编辑界面
@@ -212,15 +214,254 @@ index.js → app.js
 
 **注意**：使用 ES6 模块 (`import/export`)，需要支持 ES6 模块的现代浏览器。如果需要在旧浏览器运行，需要使用构建工具（如 Webpack、Vite、Rollup）打包。
 
-## 开发说明
+## 开发指南
 
-### 使用方式
+### 开发环境设置
 
-HTML 文件使用模块化入口：
+#### 1. 安装依赖
 
-```html
-<script type="module" src="js/index.js"></script>
+```bash
+npm install
 ```
+
+#### 2. 代码检查
+
+```bash
+# 检查代码规范
+npm run lint
+
+# 自动修复代码规范问题
+npm run lint:fix
+```
+
+#### 3. 代码格式化
+
+```bash
+# 格式化代码
+npm run format
+
+# 检查代码格式
+npm run format:check
+```
+
+#### 4. 本地开发
+
+由于项目使用 ES6 模块，需要本地服务器运行：
+
+```bash
+# 使用 Python
+python -m http.server 8000
+
+# 或使用 Node.js
+npx serve .
+
+# 或使用 VS Code Live Server 扩展
+```
+
+访问 `http://localhost:8000`
+
+### 代码规范
+
+#### 1. 命名规范
+
+- **类名**：使用 PascalCase，如 `BookExcerptApp`
+- **函数/方法名**：使用 camelCase，如 `formatDate`
+- **常量**：使用 UPPER_SNAKE_CASE，如 `LAYOUT_TYPES`
+- **私有方法**：使用下划线前缀，如 `_showError`
+
+#### 2. 文件组织
+
+- **模块化**：每个文件一个主要功能
+- **职责单一**：每个类/函数只做一件事
+- **依赖清晰**：明确模块间的依赖关系
+
+#### 3. 注释规范
+
+使用 JSDoc 格式注释，为所有公共方法添加注释：
+
+```javascript
+/**
+ * 格式化日期为 YYYY.MM.DD 格式
+ * @param {Date} [date=new Date()] - 要格式化的日期对象
+ * @returns {string} 格式化后的日期字符串
+ */
+formatDate(date = new Date()) {
+  // ...
+}
+```
+
+#### 4. 类型定义
+
+使用 JSDoc 类型定义，类型定义在 `js/types/index.js`：
+
+```javascript
+/**
+ * @typedef {Object} Theme
+ * @property {string} id - 主题ID
+ * @property {string} [color] - 背景颜色
+ */
+```
+
+### 日志管理
+
+项目使用统一的日志管理器 `logger`：
+
+```javascript
+import { logger } from "./utils/logger.js";
+
+// 调试日志（仅开发环境）
+logger.debug("调试信息");
+
+// 信息日志（仅开发环境）
+logger.info("信息");
+
+// 警告日志（所有环境）
+logger.warn("警告");
+
+// 错误日志（所有环境）
+logger.error("错误");
+```
+
+#### 创建子日志器
+
+```javascript
+const childLogger = logger.createChild("ModuleName");
+childLogger.info("模块日志");
+```
+
+### 常量管理
+
+所有常量定义在 `js/constants/index.js`：
+
+```javascript
+import { APP_CONFIG, LAYOUT_TYPES } from "./constants/index.js";
+```
+
+### 错误处理
+
+使用 `logger.error()` 记录错误，并向用户显示友好的错误消息：
+
+```javascript
+try {
+  // 操作
+} catch (error) {
+  logger.error("操作失败:", error);
+  alert("操作失败，请重试");
+}
+```
+
+### 添加新功能
+
+#### 1. 创建新模块
+
+1. 在 `js/` 目录创建新文件
+2. 使用 JSDoc 添加类型注释
+3. 导出类或函数
+4. 在 `app.js` 中集成
+
+#### 2. 添加新常量
+
+在 `js/constants/index.js` 中添加：
+
+```javascript
+export const NEW_CONSTANT = {
+  VALUE1: "value1",
+  VALUE2: "value2",
+};
+```
+
+#### 3. 添加新类型
+
+在 `js/types/index.js` 中添加：
+
+```javascript
+/**
+ * @typedef {Object} NewType
+ * @property {string} id - ID
+ * @property {number} value - 值
+ */
+```
+
+### 测试
+
+#### 手动测试清单
+
+- [ ] 桌面端功能正常
+- [ ] 移动端功能正常
+- [ ] 图片导出功能正常
+- [ ] 配置加载功能正常
+- [ ] 错误处理正常
+
+#### 浏览器兼容性
+
+- Chrome/Edge（推荐）
+- Firefox
+- Safari
+- 移动端浏览器
+
+### 性能优化
+
+#### 1. 防抖和节流
+
+使用 `Utils.debounce()` 和 `Utils.throttle()` 优化频繁操作：
+
+```javascript
+const debouncedUpdate = Utils.debounce(() => {
+  updatePreview();
+}, 300);
+```
+
+#### 2. DOM 操作优化
+
+- 使用 `DOMManager` 统一管理 DOM 元素
+- 批量更新 DOM，减少重排重绘
+- 使用 `transform` 和 `opacity` 实现动画（GPU 加速）
+
+#### 3. 图片导出优化
+
+- 使用 `html2canvas` 的 `scale` 选项提高质量
+- 移动端使用临时容器避免父元素影响
+- 合理设置 `backgroundColor` 选项
+
+### 生产环境建议
+
+1. 确保所有代码已格式化
+2. 运行 `npm run lint` 检查代码
+3. 测试所有功能
+4. 提交代码
+
+#### 构建优化（可选）
+
+如果需要进一步优化，可以考虑：
+
+- 使用 Vite/Webpack 打包
+- 代码压缩和混淆
+- 资源优化（图片、字体）
+
+### 常见问题
+
+#### 1. 模块导入错误
+
+确保使用正确的路径和文件扩展名：
+
+```javascript
+import { Utils } from "./utils.js"; // ✅
+import { Utils } from "./utils"; // ❌
+```
+
+#### 2. 类型错误
+
+确保类型定义正确导入：
+
+```javascript
+/**
+ * @typedef {import('./types/index.js').Theme} Theme
+ */
+```
+
+#### 3. 日志不显示
+
+检查是否为开发环境，`logger.debug()` 和 `logger.info()` 仅在开发环境显示。
 
 ### 代码质量
 
@@ -234,67 +475,88 @@ HTML 文件使用模块化入口：
 6. **代码规范**：ESLint + Prettier 确保代码风格一致
 7. **类型安全**：JSDoc 类型系统提供编译时类型检查
 
-### 模块化优势
+## 部署
 
-1. **模块化**：每个文件职责单一，易于维护
-2. **可维护性**：代码结构清晰，易于定位问题
-3. **可扩展性**：新增功能时只需添加新模块
-4. **团队协作**：多人开发时减少代码冲突
-5. **代码复用**：模块可以在其他项目中复用
+### 统一管理脚本
 
-### 代码结构
-
-```
-js/
-├── index.js              # 入口文件
-├── app.js               # 主应用类
-├── config.js            # 配置常量和数据
-├── state.js             # 状态管理
-├── utils.js             # 工具函数
-├── dom-manager.js       # DOM元素管理
-├── renderer.js          # UI渲染器
-├── preview-manager.js   # 预览管理器
-├── preview-processor.js # 预览处理器
-├── thumbnail-manager.js # 缩略图管理器
-├── mobile-preview-manager.js # 移动端预览管理器
-└── download-manager.js  # 下载管理器
-```
-
-### 开发工具
-
-项目包含完整的开发工具配置：
+项目使用统一的 `book-excerpt.sh` 脚本管理所有部署和管理操作：
 
 ```bash
-# 安装依赖
-npm install
-
-# 代码检查
-npm run lint
-
-# 自动修复代码规范问题
-npm run lint:fix
-
-# 代码格式化
-npm run format
-
-# 检查代码格式
-npm run format:check
+cd scripts
+chmod +x book-excerpt.sh
+./book-excerpt.sh [command] [options]
 ```
 
-### 开发指南
+### 可用命令
 
-详细的开发指南请参考 [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)
+- `deploy` - 部署前端应用到服务器
+- `update-nginx` - 更新 Nginx 配置文件（包含 SSL 证书上传）
+- `start-nginx` - 启动 Nginx 服务
+- `fix-port` - 修复端口占用问题
+- `check` - 检查部署状态和配置
+- `help` - 显示帮助信息
 
-### 生产环境建议
+### 快速部署
 
-- 使用构建工具（如 Vite、Webpack）打包成单个或少量文件
-- 启用代码压缩和优化
-- 利用浏览器缓存机制
-- 考虑使用 TypeScript 进行类型安全（可选）
+```bash
+cd scripts
+./book-excerpt.sh deploy
+```
 
-### 代码优化
+### 部署说明
 
-详细的优化说明请参考 [docs/OPTIMIZATION.md](./docs/OPTIMIZATION.md)
+详细的部署指南请参考 [docs/DEPLOY.md](./docs/DEPLOY.md)
+
+**部署信息**:
+
+- 服务器地址: 8.138.183.116
+- 部署目录: `/var/www/html/book-excerpt-generator`
+- 访问地址: `http://8.138.183.116` 或 `https://8.138.183.116`
+
+### 检查部署状态
+
+```bash
+cd scripts
+./book-excerpt.sh check
+```
+
+### 更新 Nginx 配置
+
+```bash
+cd scripts
+./book-excerpt.sh update-nginx
+```
+
+脚本会自动将 `scripts/nginx.conf` 和 SSL 证书上传到服务器并重新加载 Nginx。
+
+### 启动 Nginx
+
+如果 Nginx 未运行，可以使用启动命令：
+
+```bash
+cd scripts
+./book-excerpt.sh start-nginx
+```
+
+脚本会自动检查配置、端口占用情况，启动 Nginx 并设置开机自启。
+
+### 修复端口占用问题
+
+如果 Nginx 启动失败，提示端口被占用，可以使用修复命令：
+
+```bash
+cd scripts
+./book-excerpt.sh fix-port [端口号]
+```
+
+脚本会自动检查端口占用情况，并提供解决方案。默认检查 80 和 443 端口。
+
+### 查看帮助
+
+```bash
+cd scripts
+./book-excerpt.sh help
+```
 
 ## 许可证
 

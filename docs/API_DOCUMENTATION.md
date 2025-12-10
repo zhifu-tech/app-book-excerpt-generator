@@ -9,11 +9,13 @@
 ### 获取配置
 
 **请求**
+
 ```
 GET /api/config
 ```
 
 **响应**
+
 ```json
 {
   "themes": [
@@ -48,12 +50,14 @@ GET /api/config
 ### 保存配置
 
 **请求**
+
 ```
 POST /api/config
 Content-Type: application/json
 ```
 
 **请求体**
+
 ```json
 {
   "themes": [...],
@@ -63,6 +67,7 @@ Content-Type: application/json
 ```
 
 **响应**
+
 ```json
 {
   "success": true
@@ -111,10 +116,10 @@ if (success) {
 
 ```typescript
 interface Theme {
-  id: string;              // 主题ID（必需）
-  color?: string;          // 背景颜色（纯色主题）
-  border?: string;         // 边框颜色（纯色主题）
-  background?: string;     // 背景样式（渐变主题）
+  id: string; // 主题ID（必需）
+  color?: string; // 背景颜色（纯色主题）
+  border?: string; // 边框颜色（纯色主题）
+  background?: string; // 背景样式（渐变主题）
 }
 ```
 
@@ -122,10 +127,10 @@ interface Theme {
 
 ```typescript
 interface Font {
-  id: string;             // 字体ID（必需）
-  value: string;          // CSS字体值（必需）
-  name: string;           // 字体显示名称（必需）
-  subtitle?: string;      // 字体副标题（可选）
+  id: string; // 字体ID（必需）
+  value: string; // CSS字体值（必需）
+  name: string; // 字体显示名称（必需）
+  subtitle?: string; // 字体副标题（可选）
 }
 ```
 
@@ -133,9 +138,9 @@ interface Font {
 
 ```typescript
 interface FontColor {
-  id: string;            // 颜色ID（必需）
-  value: string;         // 颜色值（十六进制）（必需）
-  name: string;          // 颜色显示名称（必需）
+  id: string; // 颜色ID（必需）
+  value: string; // 颜色值（十六进制）（必需）
+  name: string; // 颜色显示名称（必需）
 }
 ```
 
@@ -212,5 +217,3 @@ if __name__ == '__main__':
 2. **数据验证**：服务器应验证配置数据的格式和有效性
 3. **安全性**：生产环境中应添加身份验证和授权机制
 4. **数据持久化**：建议使用数据库存储配置，而不是内存
-
-
