@@ -88,7 +88,8 @@ book-excerpt-generator/
 ├── README.md                 # 说明文档
 ├── docs/                     # 文档目录
 │   ├── API_DOCUMENTATION.md  # API 文档
-│   └── DEPLOY.md             # 部署指南
+│   ├── DEPLOY.md             # 部署指南
+│   └── CACHE_MANAGEMENT.md   # 缓存管理指南
 ├── scripts/                  # 部署脚本
 │   ├── book-excerpt.sh      # 统一管理脚本（包含所有部署和管理功能）
 │   ├── nginx.conf           # Nginx 配置文件
@@ -506,6 +507,8 @@ cd scripts
 ### 部署说明
 
 详细的部署指南请参考 [docs/DEPLOY.md](./docs/DEPLOY.md)
+
+**⚠️ 部署后使改动生效**: 部署完成后，由于浏览器缓存，可能需要强制刷新浏览器（`Ctrl+Shift+R` 或 `Cmd+Shift+R`）才能看到最新改动。详细说明请参考 [缓存管理指南](./docs/CACHE_MANAGEMENT.md)。
 
 **部署信息**:
 

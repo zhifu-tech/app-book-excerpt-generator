@@ -84,6 +84,5 @@ export const API_CONFIG = {
  */
 export const SERVER_CONFIG = {
   LOCAL: "http://localhost:3001",
-  PRODUCTION: "http://8.138.183.116:3001",
+  PRODUCTION: "https://api.book-excerpt.zhifu.tech",
 };
-

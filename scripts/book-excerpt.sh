@@ -301,6 +301,7 @@ show_help() {
   echo -e "  ${GREEN}start-nginx${NC}        启动 Nginx 服务"
   echo -e "  ${GREEN}fix-port${NC}           修复端口占用问题"
   echo -e "  ${GREEN}check${NC}              检查部署状态和配置"
+  echo -e "  ${GREEN}clear-cache${NC}        清除服务器缓存（如果使用）"
   echo -e "  ${GREEN}help${NC}               显示此帮助信息"
   echo ""
   echo -e "${YELLOW}示例:${NC}"
@@ -405,6 +406,24 @@ ENDSSH
   echo -e "${YELLOW}访问地址:${NC}"
   echo -e "  ${GREEN}http://${SERVER_HOST}${NC}"
   echo -e "  ${GREEN}https://${SERVER_HOST}${NC}"
+  echo ""
+  echo -e "${YELLOW}⚠️  重要提示：使改动生效${NC}"
+  echo -e "${CYAN}由于浏览器缓存，可能需要以下操作之一：${NC}"
+  echo ""
+  echo -e "  ${GREEN}方法 1: 强制刷新浏览器（推荐）${NC}"
+  echo -e "    ${BLUE}Windows/Linux:${NC} Ctrl + Shift + R 或 Ctrl + F5"
+  echo -e "    ${BLUE}macOS:${NC} Cmd + Shift + R"
+  echo ""
+  echo -e "  ${GREEN}方法 2: 清除浏览器缓存${NC}"
+  echo -e "    在浏览器设置中清除缓存和 Cookie"
+  echo ""
+  echo -e "  ${GREEN}方法 3: 使用无痕/隐私模式${NC}"
+  echo -e "    打开浏览器的无痕模式访问网站"
+  echo ""
+  echo -e "  ${GREEN}方法 4: 添加版本参数（开发测试）${NC}"
+  echo -e "    访问: ${BLUE}https://${SERVER_HOST}?v=$(date +%s)${NC}"
+  echo ""
+  echo -e "${CYAN}如果使用 CDN 或反向代理，可能还需要清除 CDN 缓存${NC}"
 }
 
 # ============================================
@@ -1197,6 +1216,61 @@ ENDSSH
 }
 
 # ============================================
+# 清除缓存
+# ============================================
+cmd_clear_cache() {
+  print_title "清除服务器缓存"
+  
+  echo -e "${YELLOW}注意: 此操作主要清除服务器端缓存（如果有）${NC}"
+  echo -e "${YELLOW}浏览器缓存需要用户手动清除或强制刷新${NC}"
+  echo ""
+  
+  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
+set -e
+
+echo "检查并清除可能的缓存..."
+
+# 清除 Nginx 缓存（如果配置了）
+if [ -d "/var/cache/nginx" ]; then
+  echo "清除 Nginx 缓存..."
+  rm -rf /var/cache/nginx/*
+  echo -e "\033[0;32m✓ Nginx 缓存已清除\033[0m"
+else
+  echo -e "\033[0;33m⚠ Nginx 缓存目录不存在（可能未启用缓存）\033[0m"
+fi
+
+# 重新加载 Nginx（使配置生效）
+if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
+  echo ""
+  echo "重新加载 Nginx 配置..."
+  if systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null; then
+    echo -e "\033[0;32m✓ Nginx 已重新加载\033[0m"
+  else
+    echo -e "\033[0;33m⚠ Nginx 重新加载失败（可能不需要）\033[0m"
+  fi
+fi
+
+echo ""
+echo "=========================================="
+echo "服务器端缓存清除完成"
+echo "=========================================="
+echo ""
+echo "⚠️  重要提示："
+echo "1. 浏览器缓存需要用户手动清除"
+echo "2. 使用强制刷新: Ctrl+Shift+R (Windows/Linux) 或 Cmd+Shift+R (macOS)"
+echo "3. 或者清除浏览器的缓存和 Cookie"
+ENDSSH
+
+  echo ""
+  print_success "缓存清除完成！"
+  echo ""
+  echo -e "${YELLOW}下一步操作:${NC}"
+  echo -e "  1. 在浏览器中强制刷新页面 (Ctrl+Shift+R 或 Cmd+Shift+R)"
+  echo -e "  2. 或清除浏览器缓存"
+  echo -e "  3. 或使用无痕模式访问网站"
+}
+
+# ============================================
 # 主函数
 # ============================================
 main() {
@@ -1221,6 +1295,9 @@ main() {
       ;;
     check)
       cmd_check
+      ;;
+    clear-cache)
+      cmd_clear_cache
       ;;
     help|--help|-h)
       show_help
