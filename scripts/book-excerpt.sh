@@ -7,249 +7,45 @@
 # 使用方法: ./book-excerpt.sh [command] [options]
 # ============================================
 
-set -e
+# 严格模式：遇到错误立即退出，使用未定义变量报错，管道中任一命令失败则整个管道失败
+set -euo pipefail
 
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ============================================
 # 配置变量
 # ============================================
 
-# 服务器配置
-SERVER_HOST="8.138.183.116"
-SERVER_USER="root"
-SERVER_PORT="22"
+# 服务器配置（导出供共用脚本使用）
+export SERVER_HOST="${SERVER_HOST:-8.138.183.116}"
+export SERVER_USER="${SERVER_USER:-root}"
+export SERVER_PORT="${SERVER_PORT:-22}"
 
 # 应用目录配置
 APP_DIR="/var/www/html/book-excerpt-generator"
 NGINX_CONF_PATH="/etc/nginx/conf.d/book-excerpt-generator.conf"
-BACKUP_DIR="/etc/nginx/conf.d/backup"
 SSL_CERT_DIR="/etc/nginx/ssl"
 
-# SSH 配置
-SSH_KEY_NAME="id_rsa_book_excerpt"
-SSH_KEY_PATH="$HOME/.ssh/$SSH_KEY_NAME"
-SSH_ALIAS="book-excerpt-server"
-
-# 初始化 SSH 连接参数
-init_ssh_connection() {
-  if [ -f "$SSH_KEY_PATH" ]; then
-    SSH_OPTIONS="-i $SSH_KEY_PATH"
-    SSH_TARGET="$SERVER_USER@$SERVER_HOST"
-  elif ssh -o ConnectTimeout=1 -o BatchMode=yes "$SSH_ALIAS" "echo" &>/dev/null 2>&1; then
-    SSH_OPTIONS=""
-    SSH_TARGET="$SSH_ALIAS"
-  else
-    SSH_OPTIONS=""
-    SSH_TARGET="$SERVER_USER@$SERVER_HOST"
-  fi
-}
-
-# 自动初始化 SSH 连接
-init_ssh_connection
-
-# 颜色输出定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+# Docker 配置
+readonly DOCKER_IMAGE_NAME="book-excerpt-generator"
+readonly DOCKER_CONTAINER_NAME="book-excerpt-generator"
+readonly DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 
 # ============================================
 # 工具函数
 # ============================================
 
-# 打印成功消息
-print_success() {
-  echo -e "${GREEN}✓ $1${NC}"
-}
+# 加载共用脚本库（必须在 trap 之前加载，以便使用 safe_exit）
+APP_COMMON_DIR="$(cd "$PROJECT_ROOT/../app-common" && pwd)"
+[ -f "$APP_COMMON_DIR/scripts/common-utils.sh" ] && source "$APP_COMMON_DIR/scripts/common-utils.sh"
+[ -f "$APP_COMMON_DIR/scripts/ssh-utils.sh" ] && source "$APP_COMMON_DIR/scripts/ssh-utils.sh"
+[ -f "$APP_COMMON_DIR/scripts/nginx-utils.sh" ] && source "$APP_COMMON_DIR/scripts/nginx-utils.sh"
+[ -f "$APP_COMMON_DIR/scripts/nginx-update.sh" ] && source "$APP_COMMON_DIR/scripts/nginx-update.sh"
 
-# 打印警告消息
-print_warning() {
-  echo -e "${YELLOW}⚠ $1${NC}"
-}
-
-# 打印错误消息
-print_error() {
-  echo -e "${RED}✗ $1${NC}"
-}
-
-# 打印信息消息
-print_info() {
-  echo -e "${BLUE}ℹ $1${NC}"
-}
-
-# 打印标题
-print_title() {
-  echo -e "${CYAN}==========================================${NC}"
-  echo -e "${CYAN}$1${NC}"
-  echo -e "${CYAN}==========================================${NC}"
-}
-
-# ============================================
-# Nginx 相关函数
-# ============================================
-
-# 查找 nginx 命令路径
-find_nginx_cmd() {
-  if command -v nginx &> /dev/null; then
-    echo "nginx"
-  elif [ -f "/usr/sbin/nginx" ]; then
-    echo "/usr/sbin/nginx"
-  elif [ -f "/usr/local/sbin/nginx" ]; then
-    echo "/usr/local/sbin/nginx"
-  elif [ -f "/sbin/nginx" ]; then
-    echo "/sbin/nginx"
-  else
-    echo ""
-  fi
-}
-
-# 检查 Nginx 是否安装
-check_nginx_installed() {
-  local nginx_cmd=$(find_nginx_cmd)
-  if [ -z "$nginx_cmd" ]; then
-    return 1
-  else
-    return 0
-  fi
-}
-
-# 检查 Nginx 配置语法
-check_nginx_config() {
-  local nginx_cmd=$(find_nginx_cmd)
-  if [ -z "$nginx_cmd" ]; then
-    echo "Nginx 未安装"
-    return 1
-  fi
-  
-  if $nginx_cmd -t 2>&1; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查 Nginx 服务状态
-check_nginx_status() {
-  if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查端口是否被占用
-check_port_in_use() {
-  local port=$1
-  local pid=""
-  
-  if command -v lsof &> /dev/null; then
-    pid=$(lsof -ti:$port 2>/dev/null || echo "")
-  elif command -v netstat &> /dev/null; then
-    pid=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d'/' -f1 | head -1)
-  elif command -v ss &> /dev/null; then
-    pid=$(ss -tlnp 2>/dev/null | grep ":$port " | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1)
-  fi
-  
-  if [ -n "$pid" ]; then
-    echo "$pid"
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 获取占用端口的进程信息
-get_port_process_info() {
-  local port=$1
-  local pid=$(check_port_in_use "$port")
-  
-  if [ -n "$pid" ]; then
-    local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-    echo "$pid|$process"
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查端口监听（用于 Nginx）
-check_nginx_listening() {
-  local ports="${1:-80 443 8080}"
-  local found=false
-  
-  for port in $ports; do
-    if netstat -tlnp 2>/dev/null | grep -E "nginx.*:$port" > /dev/null || \
-       ss -tlnp 2>/dev/null | grep -E "nginx.*:$port" > /dev/null; then
-      found=true
-      break
-    fi
-  done
-  
-  if [ "$found" = true ]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查 Apache 是否安装
-check_apache_installed() {
-  if command -v apache2 &> /dev/null || command -v httpd &> /dev/null; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查 Apache 服务状态
-check_apache_status() {
-  if systemctl is-active --quiet apache2 2>/dev/null || \
-     systemctl is-active --quiet httpd 2>/dev/null || \
-     service apache2 status &>/dev/null || \
-     service httpd status &>/dev/null; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查文件是否存在
-check_file_exists() {
-  local file=$1
-  if [ -f "$file" ]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 检查目录是否存在
-check_dir_exists() {
-  local dir=$1
-  if [ -d "$dir" ]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# 在远程服务器执行命令（带错误处理）
-remote_exec() {
-  local cmd=$1
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} "$cmd"
-}
-
-# 在远程服务器执行多行命令
-remote_exec_heredoc() {
-  local heredoc_content=$1
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << ENDSSH
-$heredoc_content
-ENDSSH
-}
+# 设置清理 trap（脚本退出时清理临时文件，必须在加载 common-utils.sh 之后）
+trap 'safe_exit $?' EXIT INT TERM
 
 # ============================================
 # 欢迎界面
@@ -257,7 +53,13 @@ ENDSSH
 show_welcome() {
   echo ""
   echo -e "${CYAN}"
-  cat << "EOF"
+  # 从 welcome.txt 读取欢迎画面
+  local welcome_file="$APP_COMMON_DIR/welcome.txt"
+  if [ -f "$welcome_file" ]; then
+    cat "$welcome_file"
+  else
+    # 如果文件不存在，使用默认的 ASCII 艺术字
+    cat << "EOF"
                                                                                                                                    
                ,----..       ,----..          ,--.                                                                                 
     ,---,.    /   /   \     /   /   \     ,--/  /|            ,---,.                                                       ___     
@@ -275,12 +77,13 @@ show_welcome() {
 `----'                                 '---'              `----'                  `----'    `----'             `---`               
                                                                                                                                                                                                                                                      
 EOF
+  fi
   echo -e "${NC}"
   echo -e "${CYAN}              Generator - 书摘卡片生成器@Zhifu's Tech${NC}"
   echo ""
   local cmd="${1:-help}"
   echo -e "${YELLOW}版本: 1.0.0${NC}"
-  echo -e "${YELLOW}服务器: ${SERVER_HOST}${NC}"
+  echo -e "${YELLOW}服务器: ${SERVER_HOST:-未配置}${NC}"
   echo -e "${YELLOW}命令: ${cmd}${NC}"
   echo ""
 }
@@ -296,45 +99,78 @@ show_help() {
   echo ""
   echo -e "${YELLOW}可用命令:${NC}"
   echo ""
+  echo -e "  ${GREEN}SSH 配置:${NC}"
+  echo -e "  ${GREEN}update-ssh-key${NC}     更新 SSH 公钥到服务器"
+  echo ""
+  echo -e "  ${GREEN}部署:${NC}"
   echo -e "  ${GREEN}deploy${NC}             部署前端应用到服务器"
+  echo ""
+  echo -e "  ${GREEN}Nginx 配置:${NC}"
   echo -e "  ${GREEN}update-nginx${NC}       更新 Nginx 配置文件"
   echo -e "  ${GREEN}start-nginx${NC}        启动 Nginx 服务"
+  echo ""
+  echo -e "  ${GREEN}Docker 命令:${NC}"
+  echo -e "  ${GREEN}docker-build${NC}        构建 Docker 镜像"
+  echo -e "  ${GREEN}docker-up${NC}           启动 Docker 容器（本地调试）"
+  echo -e "  ${GREEN}docker-down${NC}         停止 Docker 容器"
+  echo -e "  ${GREEN}docker-logs${NC}         查看 Docker 容器日志"
+  echo -e "  ${GREEN}docker-shell${NC}        进入 Docker 容器 shell"
+  echo -e "  ${GREEN}docker-restart${NC}      重启 Docker 容器"
+  echo -e "  ${GREEN}docker-deploy${NC}       使用 Docker 部署到服务器"
+  echo ""
+  echo -e "  ${GREEN}工具:${NC}"
   echo -e "  ${GREEN}fix-port${NC}           修复端口占用问题"
   echo -e "  ${GREEN}check${NC}              检查部署状态和配置"
   echo -e "  ${GREEN}clear-cache${NC}        清除服务器缓存（如果使用）"
+  echo ""
   echo -e "  ${GREEN}help${NC}               显示此帮助信息"
   echo ""
   echo -e "${YELLOW}示例:${NC}"
+  echo "  ./book-excerpt.sh update-ssh-key"
   echo "  ./book-excerpt.sh deploy"
   echo "  ./book-excerpt.sh update-nginx"
-  echo "  ./book-excerpt.sh check"
+  echo "  ./book-excerpt.sh docker-up"
+  echo "  ./book-excerpt.sh docker-deploy"
   echo ""
+}
+
+# ============================================
+# 更新 SSH 公钥到服务器
+# ============================================
+cmd_update_ssh_key() {
+  print_info "更新 SSH 公钥到服务器 ${SERVER_HOST}..."
+  echo ""
+  
+  if ! update_ssh_key_to_server; then
+    print_error "SSH 公钥更新失败"
+    return 1
+  fi
+  
+  echo ""
+  print_success "SSH 登录认证信息已更新！"
+  print_info "现在可以使用 SSH 密钥无密码登录服务器"
 }
 
 # ============================================
 # 部署功能
 # ============================================
 cmd_deploy() {
-  echo -e "${GREEN}开始部署前端应用到服务器 ${SERVER_HOST}...${NC}"
+  print_info "开始部署前端应用到服务器 ${SERVER_HOST}..."
   echo ""
   
+  cd "$PROJECT_ROOT" || return 1
+  
   # 检查本地文件
-  if [ ! -f "index.html" ]; then
-    echo -e "${RED}错误: 未找到 index.html，请确保在项目根目录执行${NC}"
-    exit 1
-  fi
-
-  if [ ! -d "js" ]; then
-    echo -e "${RED}错误: 未找到 js/ 目录，请确保在项目根目录执行${NC}"
-    exit 1
-  fi
+  check_file_exists "index.html" "未找到 index.html，请确保在项目根目录执行" || return 1
+  check_dir_exists "js" "未找到 js/ 目录，请确保在项目根目录执行" || return 1
 
   # 创建临时部署目录
   TEMP_DIR=$(mktemp -d)
-  echo -e "${YELLOW}创建临时目录: ${TEMP_DIR}${NC}"
+  register_cleanup "$TEMP_DIR"
+  print_info "创建临时目录: ${TEMP_DIR}"
 
   # 复制必要文件
-  echo -e "${YELLOW}复制文件...${NC}"
+  print_info "复制文件..."
 
   # 复制核心文件
   cp index.html style.css "$TEMP_DIR/" 2>/dev/null || true
@@ -342,35 +178,27 @@ cmd_deploy() {
   # 复制 JavaScript 目录
   if [ -d "js" ]; then
     cp -r js "$TEMP_DIR/"
-    echo -e "${GREEN}✓ 已复制 js/ 目录${NC}"
+    print_success "已复制 js/ 目录"
   fi
 
   # 复制截图目录（如果存在）
   if [ -d "screenshots" ]; then
     cp -r screenshots "$TEMP_DIR/" 2>/dev/null || true
-    echo -e "${GREEN}✓ 已复制 screenshots/ 目录${NC}"
+    print_success "已复制 screenshots/ 目录"
   fi
 
   # 复制其他可能需要的文件
-  if [ -f "package.json" ]; then
-    cp package.json "$TEMP_DIR/" 2>/dev/null || true
-  fi
-
-  if [ -f "README.md" ]; then
-    cp README.md "$TEMP_DIR/" 2>/dev/null || true
-  fi
+  [ -f "package.json" ] && cp package.json "$TEMP_DIR/" 2>/dev/null || true
+  [ -f "README.md" ] && cp README.md "$TEMP_DIR/" 2>/dev/null || true
 
   # 上传文件到服务器
-  echo -e "${YELLOW}上传文件到服务器...${NC}"
-  ssh $SSH_OPTIONS -p ${SERVER_PORT} ${SSH_TARGET} "mkdir -p ${APP_DIR}"
+  print_info "上传文件到服务器..."
+  ssh_exec "mkdir -p ${APP_DIR}"
   scp $SSH_OPTIONS -r -P ${SERVER_PORT} "$TEMP_DIR"/* ${SSH_TARGET}:${APP_DIR}/
 
-  # 清理临时目录
-  rm -rf "$TEMP_DIR"
-
   # 在服务器上执行部署后操作
-  echo -e "${YELLOW}在服务器上配置权限和验证部署...${NC}"
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << ENDSSH
+  print_info "在服务器上配置权限和验证部署..."
+  ssh_exec << ENDSSH
 cd ${APP_DIR}
 
 # 设置文件权限
@@ -381,34 +209,22 @@ chown -R nginx:nginx ${APP_DIR} 2>/dev/null || chown -R www-data:www-data ${APP_
 # 验证关键文件
 echo ""
 echo "验证部署文件..."
-if [ -f "index.html" ]; then
-  echo -e "\033[0;32m✓ index.html 存在\033[0m"
-else
-  echo -e "\033[0;31m✗ index.html 不存在\033[0m"
-fi
-
-if [ -f "style.css" ]; then
-  echo -e "\033[0;32m✓ style.css 存在\033[0m"
-else
-  echo -e "\033[0;31m✗ style.css 不存在\033[0m"
-fi
-
-if [ -d "js" ]; then
-  echo -e "\033[0;32m✓ js/ 目录存在\033[0m"
+[ -f "index.html" ] && echo "✓ index.html 存在" || echo "✗ index.html 不存在"
+[ -f "style.css" ] && echo "✓ style.css 存在" || echo "✗ style.css 不存在"
+[ -d "js" ] && {
+  echo "✓ js/ 目录存在"
   echo "  JavaScript 文件数量: \$(find js -type f -name '*.js' | wc -l)"
-else
-  echo -e "\033[0;31m✗ js/ 目录不存在\033[0m"
-fi
+} || echo "✗ js/ 目录不存在"
 ENDSSH
 
   echo ""
-  echo -e "${GREEN}部署完成！${NC}"
-  echo -e "${YELLOW}访问地址:${NC}"
+  print_success "部署完成！"
+  print_info "访问地址:"
   echo -e "  ${GREEN}http://${SERVER_HOST}${NC}"
   echo -e "  ${GREEN}https://${SERVER_HOST}${NC}"
   echo ""
-  echo -e "${YELLOW}⚠️  重要提示：使改动生效${NC}"
-  echo -e "${CYAN}由于浏览器缓存，可能需要以下操作之一：${NC}"
+  print_warning "⚠️  重要提示：使改动生效"
+  print_info "由于浏览器缓存，可能需要以下操作之一："
   echo ""
   echo -e "  ${GREEN}方法 1: 强制刷新浏览器（推荐）${NC}"
   echo -e "    ${BLUE}Windows/Linux:${NC} Ctrl + Shift + R 或 Ctrl + F5"
@@ -423,7 +239,7 @@ ENDSSH
   echo -e "  ${GREEN}方法 4: 添加版本参数（开发测试）${NC}"
   echo -e "    访问: ${BLUE}https://${SERVER_HOST}?v=$(date +%s)${NC}"
   echo ""
-  echo -e "${CYAN}如果使用 CDN 或反向代理，可能还需要清除 CDN 缓存${NC}"
+  print_info "如果使用 CDN 或反向代理，可能还需要清除 CDN 缓存"
 }
 
 # ============================================
@@ -431,451 +247,57 @@ ENDSSH
 # ============================================
 cmd_update_nginx() {
   # 确定配置文件路径
-  if [ -n "$1" ]; then
-    LOCAL_CONF="$1"
+  local nginx_local_conf="${1:-$SCRIPT_DIR/nginx.conf}"
+  check_file_exists "$nginx_local_conf" "配置文件不存在" || return 1
+
+  local ssl_cert_local_dir="$APP_COMMON_DIR/ssl/book-excerpt.zhifu.tech_nginx"
+  local ssl_cert_name="book-excerpt.zhifu.tech"
+  local ssl_cert_key="$ssl_cert_local_dir/${ssl_cert_name}.key"
+  local ssl_cert_bundle_crt="$ssl_cert_local_dir/${ssl_cert_name}_bundle.crt"
+  local ssl_cert_bundle_pem="$ssl_cert_local_dir/${ssl_cert_name}_bundle.pem"
+
+  print_info "更新 Nginx 配置到服务器 ${SERVER_HOST}..."
+
+  # 检查 SSL 证书是否存在
+  local ssl_cert_files_exist=false
+  if [ -f "$ssl_cert_key" ] && ([ -f "$ssl_cert_bundle_crt" ] || [ -f "$ssl_cert_bundle_pem" ]); then
+    ssl_cert_files_exist=true
+  fi
+
+  # 使用共用脚本库更新配置
+  if [ "$ssl_cert_files_exist" = "true" ]; then
+    update_nginx_config \
+      "$nginx_local_conf" \
+      "$NGINX_CONF_PATH" \
+      "$SSH_OPTIONS" \
+      "$SERVER_PORT" \
+      "$SSH_TARGET" \
+      "ssh_exec" \
+      "$ssl_cert_name" \
+      "$ssl_cert_local_dir" \
+      "$SSL_CERT_DIR"
   else
-    LOCAL_CONF="$SCRIPT_DIR/nginx.conf"
+    # 不使用 SSL 证书的简化版本
+    prepare_nginx_server "$NGINX_CONF_PATH" "ssh_exec" "$SSH_TARGET"
+    print_info "上传配置文件..."
+    scp $SSH_OPTIONS -P "${SERVER_PORT}" "$nginx_local_conf" "${SSH_TARGET}:${NGINX_CONF_PATH}"
+    test_and_reload_nginx "$NGINX_CONF_PATH" "ssh_exec" "$SSH_TARGET"
   fi
-
-  # 检查本地配置文件是否存在
-  if [ ! -f "$LOCAL_CONF" ]; then
-    echo -e "${RED}错误: 配置文件不存在: ${LOCAL_CONF}${NC}"
-    exit 1
-  fi
-
-  # 确定证书文件路径
-  CERT_DIR="$SCRIPT_DIR/book-excerpt.zhifu.tech_nginx"
-  CERT_BUNDLE_CRT="$CERT_DIR/book-excerpt.zhifu.tech_bundle.crt"
-  CERT_BUNDLE_PEM="$CERT_DIR/book-excerpt.zhifu.tech_bundle.pem"
-  CERT_KEY="$CERT_DIR/book-excerpt.zhifu.tech.key"
-
-  # 检查证书文件是否存在
-  CERT_FILES_EXIST=false
-  if [ -f "$CERT_BUNDLE_CRT" ] && [ -f "$CERT_KEY" ]; then
-    CERT_FILES_EXIST=true
-    CERT_FILE="$CERT_BUNDLE_CRT"
-  elif [ -f "$CERT_BUNDLE_PEM" ] && [ -f "$CERT_KEY" ]; then
-    CERT_FILES_EXIST=true
-    CERT_FILE="$CERT_BUNDLE_PEM"
-  fi
-
-  if [ "$CERT_FILES_EXIST" = true ]; then
-    echo -e "${GREEN}✓ 找到证书文件${NC}"
-    echo -e "${YELLOW}  证书文件: ${CERT_FILE}${NC}"
-    echo -e "${YELLOW}  私钥文件: ${CERT_KEY}${NC}"
-  else
-    echo -e "${YELLOW}⚠ 未找到证书文件，将跳过证书上传${NC}"
-    echo -e "${YELLOW}  预期位置: ${CERT_DIR}${NC}"
-  fi
-
-  echo -e "${GREEN}开始更新 Nginx 配置到服务器 ${SERVER_HOST}...${NC}"
-  echo -e "${YELLOW}本地配置文件: ${LOCAL_CONF}${NC}"
-  echo -e "${YELLOW}服务器配置文件: ${NGINX_CONF_PATH}${NC}"
-
-  # 在服务器上执行更新操作
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
-set -e
-
-# 查找 nginx 命令路径
-NGINX_CMD=""
-if command -v nginx &> /dev/null; then
-  NGINX_CMD="nginx"
-elif [ -f "/usr/sbin/nginx" ]; then
-  NGINX_CMD="/usr/sbin/nginx"
-elif [ -f "/usr/local/sbin/nginx" ]; then
-  NGINX_CMD="/usr/local/sbin/nginx"
-elif [ -f "/sbin/nginx" ]; then
-  NGINX_CMD="/sbin/nginx"
-fi
-
-# 检查 Nginx 是否安装
-if [ -z "$NGINX_CMD" ]; then
-  echo -e "\033[0;33m⚠ Nginx 未安装或未找到，将继续上传配置文件\033[0m"
-  echo "可以稍后安装 Nginx 并测试配置"
-else
-  echo -e "\033[0;32m✓ Nginx 已安装: $($NGINX_CMD -v 2>&1)\033[0m"
-fi
-
-# 创建备份目录
-mkdir -p /etc/nginx/conf.d/backup
-echo -e "\033[0;32m✓ 备份目录已创建\033[0m"
-
-# 备份现有配置（如果存在）
-if [ -f "/etc/nginx/conf.d/book-excerpt-generator.conf" ]; then
-  BACKUP_FILE="/etc/nginx/conf.d/backup/book-excerpt-generator.conf.backup.$(date +%Y%m%d_%H%M%S)"
-  cp /etc/nginx/conf.d/book-excerpt-generator.conf "$BACKUP_FILE"
-  echo -e "\033[0;32m✓ 已备份现有配置到: $BACKUP_FILE\033[0m"
-else
-  echo -e "\033[0;33m⚠ 配置文件不存在，将创建新配置\033[0m"
-fi
-
-# 创建配置目录（如果不存在）
-mkdir -p /etc/nginx/conf.d
-echo -e "\033[0;32m✓ 配置目录已准备\033[0m"
-ENDSSH
-
-  # 上传配置文件
-  echo -e "${YELLOW}上传配置文件到服务器...${NC}"
-  scp $SSH_OPTIONS -P ${SERVER_PORT} "$LOCAL_CONF" ${SSH_TARGET}:${NGINX_CONF_PATH}
-
-  # 上传证书文件（如果存在）
-  if [ "$CERT_FILES_EXIST" = true ]; then
-    echo -e "${YELLOW}上传 SSL 证书到服务器...${NC}"
-    
-    # 在服务器上创建 SSL 证书目录
-    ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << ENDSSH
-set -e
-mkdir -p ${SSL_CERT_DIR}
-echo -e "\033[0;32m✓ SSL 证书目录已创建: ${SSL_CERT_DIR}\033[0m"
-ENDSSH
-    
-    # 上传证书文件
-    CERT_NAME="book-excerpt.zhifu.tech"
-    if [ -f "$CERT_BUNDLE_CRT" ]; then
-      scp $SSH_OPTIONS -P ${SERVER_PORT} "$CERT_BUNDLE_CRT" ${SSH_TARGET}:${SSL_CERT_DIR}/${CERT_NAME}_bundle.crt
-      echo -e "${GREEN}✓ 证书文件已上传${NC}"
-    elif [ -f "$CERT_BUNDLE_PEM" ]; then
-      scp $SSH_OPTIONS -P ${SERVER_PORT} "$CERT_BUNDLE_PEM" ${SSH_TARGET}:${SSL_CERT_DIR}/${CERT_NAME}_bundle.pem
-      echo -e "${GREEN}✓ 证书文件已上传${NC}"
-    fi
-    
-    # 上传私钥文件
-    scp $SSH_OPTIONS -P ${SERVER_PORT} "$CERT_KEY" ${SSH_TARGET}:${SSL_CERT_DIR}/${CERT_NAME}.key
-    echo -e "${GREEN}✓ 私钥文件已上传${NC}"
-    
-    # 设置证书文件权限
-    ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << ENDSSH
-set -e
-# 设置证书文件权限（644）
-chmod 644 ${SSL_CERT_DIR}/${CERT_NAME}_bundle.* 2>/dev/null || true
-# 设置私钥文件权限（600，只有所有者可读）
-chmod 600 ${SSL_CERT_DIR}/${CERT_NAME}.key
-# 设置所有者
-chown root:root ${SSL_CERT_DIR}/${CERT_NAME}.*
-echo -e "\033[0;32m✓ 证书文件权限已设置\033[0m"
-ENDSSH
-  fi
-
-  # 在服务器上验证和应用配置
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
-set -e
-
-# 检查主配置文件是否包含 conf.d
-echo "检查主配置文件..."
-if ! grep -q "include.*conf.d" /etc/nginx/nginx.conf 2>/dev/null; then
-  echo -e "\033[0;33m⚠ 主配置文件未包含 conf.d 目录\033[0m"
-  echo "检查是否需要添加 include 指令..."
-  
-  # 检查是否有 http 块
-  if grep -q "http {" /etc/nginx/nginx.conf; then
-    echo "主配置文件包含 http 块，但可能缺少 include 指令"
-    echo "建议手动添加: include /etc/nginx/conf.d/*.conf;"
-    echo "位置: 在 http {} 块内"
-  fi
-else
-  echo -e "\033[0;32m✓ 主配置文件已包含 conf.d 目录\033[0m"
-fi
-
-# 确保 conf.d 目录存在
-if [ ! -d "/etc/nginx/conf.d" ]; then
-  echo "创建 conf.d 目录..."
-  mkdir -p /etc/nginx/conf.d
-  echo -e "\033[0;32m✓ conf.d 目录已创建\033[0m"
-fi
-
-# 设置文件权限
-chmod 644 /etc/nginx/conf.d/book-excerpt-generator.conf
-chown root:root /etc/nginx/conf.d/book-excerpt-generator.conf
-echo -e "\033[0;32m✓ 文件权限已设置\033[0m"
-ENDSSH
-
-  # 测试 Nginx 配置
-  echo ""
-  echo "=========================================="
-  echo "测试 Nginx 配置..."
-  echo "=========================================="
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
-set -e
-
-# 查找 nginx 命令路径
-NGINX_CMD=""
-if command -v nginx &> /dev/null; then
-  NGINX_CMD="nginx"
-elif [ -f "/usr/sbin/nginx" ]; then
-  NGINX_CMD="/usr/sbin/nginx"
-elif [ -f "/usr/local/sbin/nginx" ]; then
-  NGINX_CMD="/usr/local/sbin/nginx"
-elif [ -f "/sbin/nginx" ]; then
-  NGINX_CMD="/sbin/nginx"
-fi
-
-if [ ! -z "$NGINX_CMD" ]; then
-  if $NGINX_CMD -t 2>&1; then
-    echo -e "\033[0;32m✓ Nginx 配置语法正确\033[0m"
-  else
-    echo -e "\033[0;31m✗ Nginx 配置语法错误\033[0m"
-    echo ""
-    echo "如果配置有误，可以从备份恢复："
-    echo "  ls -lt /etc/nginx/conf.d/backup/book-excerpt-generator.conf.backup.* | head -1"
-    exit 1
-  fi
-else
-  echo -e "\033[0;33m⚠ 未找到 nginx 命令，跳过配置测试\033[0m"
-  echo "配置文件已上传，但无法验证语法"
-  echo "可以手动测试: /usr/sbin/nginx -t 或 systemctl status nginx"
-fi
-ENDSSH
-
-  # 重新加载 Nginx
-  echo ""
-  echo "=========================================="
-  echo "重新加载 Nginx 配置"
-  echo "=========================================="
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
-set -e
-
-# 尝试重新加载（不中断服务）
-if systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null; then
-  echo -e "\033[0;32m✓ Nginx 配置已重新加载\033[0m"
-elif systemctl restart nginx 2>/dev/null || service nginx restart 2>/dev/null; then
-  echo -e "\033[0;33m⚠ 使用 restart 方式重新加载（服务会短暂中断）\033[0m"
-  echo -e "\033[0;32m✓ Nginx 已重启\033[0m"
-else
-  echo -e "\033[0;33m⚠ 无法重新加载 Nginx（可能未运行）\033[0m"
-  echo "配置文件已上传，可以手动启动:"
-  echo "  systemctl start nginx"
-fi
-
-# 检查 Nginx 状态
-echo ""
-echo "=========================================="
-echo "检查 Nginx 状态"
-echo "=========================================="
-if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
-  echo -e "\033[0;32m✓ Nginx 正在运行\033[0m"
-  systemctl status nginx --no-pager -l 2>/dev/null | head -10 || service nginx status 2>/dev/null | head -10
-else
-  echo -e "\033[0;33m⚠ Nginx 未运行\033[0m"
-  echo "配置文件已上传，可以手动启动:"
-  echo "  systemctl start nginx"
-fi
-
-# 检查端口监听
-echo ""
-echo "=========================================="
-echo "检查端口监听"
-echo "=========================================="
-if netstat -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443|8080)' > /dev/null || \
-   ss -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443|8080)' > /dev/null; then
-  echo -e "\033[0;32m✓ Nginx 端口正在监听\033[0m"
-  netstat -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443|8080)' || \
-  ss -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443|8080)'
-else
-  echo -e "\033[0;33m⚠ 未检测到 Nginx 端口监听\033[0m"
-fi
-
-echo ""
-echo "=========================================="
-echo "配置更新完成"
-echo "=========================================="
-ENDSSH
 
   echo ""
-  echo -e "${GREEN}Nginx 配置更新完成！${NC}"
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${YELLOW}配置文件位置:${NC}"
-  echo -e "  ${GREEN}${NGINX_CONF_PATH}${NC}"
-  if [ "$CERT_FILES_EXIST" = true ]; then
-    echo ""
-    echo -e "${YELLOW}SSL 证书位置:${NC}"
-    echo -e "  ${GREEN}${SSL_CERT_DIR}/book-excerpt.zhifu.tech_bundle.*${NC}"
-    echo -e "  ${GREEN}${SSL_CERT_DIR}/book-excerpt.zhifu.tech.key${NC}"
-  fi
+  print_success "Nginx 配置更新完成！"
+  print_info "配置文件: ${NGINX_CONF_PATH}"
+  [ "$ssl_cert_files_exist" = "true" ] && print_info "SSL 证书: ${SSL_CERT_DIR}/${ssl_cert_name}.*"
 }
 
 # ============================================
 # 启动 Nginx
 # ============================================
 cmd_start_nginx() {
-  echo -e "${GREEN}检查并启动 Nginx...${NC}"
-  
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
-set -e
-
-# 查找 nginx 命令路径
-NGINX_CMD=""
-if command -v nginx &> /dev/null; then
-  NGINX_CMD="nginx"
-elif [ -f "/usr/sbin/nginx" ]; then
-  NGINX_CMD="/usr/sbin/nginx"
-elif [ -f "/usr/local/sbin/nginx" ]; then
-  NGINX_CMD="/usr/local/sbin/nginx"
-elif [ -f "/sbin/nginx" ]; then
-  NGINX_CMD="/sbin/nginx"
-fi
-
-# 检查 Nginx 是否安装
-if [ -z "$NGINX_CMD" ]; then
-  echo -e "\033[0;31m✗ Nginx 未安装或未找到\033[0m"
+  print_info "检查并启动 Nginx..."
+  start_nginx_service "ssh_exec" "$SSH_TARGET"
   echo ""
-  echo "安装 Nginx:"
-  if [ -f /etc/redhat-release ]; then
-    echo "  yum install -y nginx"
-  elif [ -f /etc/debian_version ]; then
-    echo "  apt-get install -y nginx"
-  fi
-  exit 1
-fi
-
-NGINX_VERSION=$($NGINX_CMD -v 2>&1)
-echo -e "\033[0;32m✓ Nginx 已安装: $NGINX_VERSION\033[0m"
-
-# 检查配置语法
-echo ""
-echo "检查 Nginx 配置语法..."
-if $NGINX_CMD -t 2>&1; then
-  echo -e "\033[0;32m✓ Nginx 配置语法正确\033[0m"
-else
-  echo -e "\033[0;31m✗ Nginx 配置语法错误\033[0m"
-  echo ""
-  echo "详细错误信息:"
-  $NGINX_CMD -t 2>&1 || true
-  echo ""
-  echo "请修复配置错误后重试"
-  echo "配置文件位置:"
-  echo "  /etc/nginx/nginx.conf"
-  echo "  /etc/nginx/conf.d/*.conf"
-  exit 1
-fi
-
-# 检查端口占用
-echo ""
-echo "检查端口占用..."
-# 从 Nginx 配置中提取端口号
-CONFIG_PORTS=$(grep -h "listen" /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf 2>/dev/null | grep -oE "[0-9]+" | sort -u || echo "")
-if [ -z "$CONFIG_PORTS" ]; then
-  CONFIG_PORTS="80 443"
-fi
-
-for PORT in $CONFIG_PORTS; do
-  PORT_IN_USE=false
-  PID=""
-  
-  # 检查端口是否被占用
-  if command -v lsof &> /dev/null; then
-    if lsof -ti:$PORT > /dev/null 2>&1; then
-      PORT_IN_USE=true
-      PID=$(lsof -ti:$PORT 2>/dev/null | head -1)
-    fi
-  elif command -v netstat &> /dev/null; then
-    if netstat -tlnp 2>/dev/null | grep ":$PORT " > /dev/null; then
-      PORT_IN_USE=true
-      PID=$(netstat -tlnp 2>/dev/null | grep ":$PORT " | awk '{print $7}' | cut -d'/' -f1 | head -1)
-    fi
-  elif command -v ss &> /dev/null; then
-    if ss -tlnp 2>/dev/null | grep ":$PORT " > /dev/null; then
-      PORT_IN_USE=true
-      PID=$(ss -tlnp 2>/dev/null | grep ":$PORT " | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1)
-    fi
-  fi
-  
-  if [ "$PORT_IN_USE" = "true" ]; then
-    PROCESS=$(ps -p $PID -o comm= 2>/dev/null || echo "unknown")
-    echo -e "\033[0;33m⚠ 端口 $PORT 被进程占用 (PID: $PID, 进程: $PROCESS)\033[0m"
-    
-    # 如果是 80 端口，尝试停止常见的占用进程
-    if [ "$PORT" = "80" ]; then
-      echo "尝试停止可能占用 80 端口的服务..."
-      
-      # 尝试停止 Apache
-      if systemctl is-active --quiet httpd 2>/dev/null || systemctl is-active --quiet apache2 2>/dev/null; then
-        echo "停止 Apache..."
-        systemctl stop httpd 2>/dev/null || systemctl stop apache2 2>/dev/null || true
-        sleep 2
-      fi
-      
-      # 再次检查端口
-      if command -v lsof &> /dev/null; then
-        if lsof -ti:$PORT > /dev/null 2>&1; then
-          echo -e "\033[0;33m⚠ 端口 $PORT 仍被占用\033[0m"
-          echo "运行 ./book-excerpt.sh fix-port 来检查和修复端口占用问题"
-          exit 1
-        fi
-      fi
-    else
-      echo -e "\033[0;31m✗ 端口 $PORT 被占用，无法启动 Nginx\033[0m"
-      echo "运行 ./book-excerpt.sh fix-port $PORT 来检查和修复端口占用问题"
-      exit 1
-    fi
-  else
-    echo -e "\033[0;32m✓ 端口 $PORT 未被占用\033[0m"
-  fi
-done
-
-# 检查 Nginx 是否运行
-echo ""
-if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
-  echo -e "\033[0;32m✓ Nginx 已在运行\033[0m"
-  systemctl status nginx --no-pager -l 2>/dev/null | head -10 || service nginx status 2>/dev/null | head -10
-else
-  echo -e "\033[0;33m⚠ Nginx 未运行，正在启动...\033[0m"
-  
-  # 尝试启动
-  if systemctl start nginx 2>/dev/null || service nginx start 2>/dev/null; then
-    sleep 2
-    
-    # 再次检查
-    if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
-      echo -e "\033[0;32m✓ Nginx 已成功启动\033[0m"
-      systemctl status nginx --no-pager -l 2>/dev/null | head -10 || service nginx status 2>/dev/null | head -10
-    else
-      echo -e "\033[0;31m✗ Nginx 启动失败\033[0m"
-      echo ""
-      echo "查看错误日志:"
-      journalctl -u nginx -n 20 --no-pager 2>/dev/null || tail -20 /var/log/nginx/error.log 2>/dev/null || echo "无法读取日志"
-      exit 1
-    fi
-  else
-    echo -e "\033[0;31m✗ 无法启动 Nginx\033[0m"
-    echo ""
-    echo "请手动检查:"
-    echo "  systemctl status nginx"
-    echo "  journalctl -u nginx -n 50"
-    exit 1
-  fi
-fi
-
-# 检查端口监听
-echo ""
-echo "检查端口监听..."
-if netstat -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443)' > /dev/null || \
-   ss -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443)' > /dev/null; then
-  echo -e "\033[0;32m✓ Nginx 端口正在监听\033[0m"
-  netstat -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443)' || \
-  ss -tlnp 2>/dev/null | grep -E 'nginx.*:(80|443)'
-else
-  echo -e "\033[0;33m⚠ 未检测到 Nginx 端口监听\033[0m"
-fi
-
-# 设置开机自启
-echo ""
-echo "设置开机自启..."
-if systemctl enable nginx 2>/dev/null || chkconfig nginx on 2>/dev/null; then
-  echo -e "\033[0;32m✓ Nginx 已设置为开机自启\033[0m"
-else
-  echo -e "\033[0;33m⚠ 无法设置开机自启（可能需要手动设置）\033[0m"
-fi
-
-echo ""
-echo "=========================================="
-echo "Nginx 启动完成"
-echo "=========================================="
-ENDSSH
-
-  echo ""
-  echo -e "${GREEN}Nginx 启动完成！${NC}"
-  echo -e "${YELLOW}测试访问:${NC}"
-  echo -e "  ${GREEN}curl http://${SERVER_HOST}${NC}"
+  print_success "Nginx 启动完成！"
 }
 
 # ============================================
@@ -883,70 +305,70 @@ ENDSSH
 # ============================================
 cmd_fix_port() {
   # 要检查的端口（默认 80 和 443）
-  PORTS="${1:-80 443}"
+  local ports="${1:-80 443}"
 
-  echo -e "${GREEN}检查并修复端口占用问题...${NC}"
+  print_info "检查并修复端口占用问题..."
 
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << ENDSSH
+  ssh_exec << ENDSSH
 set -e
 
 echo "=========================================="
 echo "检查端口占用情况"
 echo "=========================================="
 
-for PORT in ${PORTS}; do
+for PORT in ${ports}; do
   echo ""
   echo "检查端口 \${PORT}..."
   
   # 查找占用端口的进程
-  PID=""
-  PROCESS=""
+  local pid=""
+  local process=""
   
   if command -v lsof &> /dev/null; then
-    PID=\$(lsof -ti:\${PORT} 2>/dev/null || true)
-    if [ ! -z "\$PID" ]; then
-      PROCESS=\$(ps -p \$PID -o comm= 2>/dev/null || echo "unknown")
-      echo -e "\033[0;33m⚠ 端口 \${PORT} 被进程占用\033[0m"
-      echo "  PID: \$PID"
-      echo "  进程: \$PROCESS"
+    pid=\$(lsof -ti:\${PORT} 2>/dev/null || true)
+    if [ ! -z "\$pid" ]; then
+      process=\$(ps -p \$pid -o comm= 2>/dev/null || echo "unknown")
+      echo "⚠ 端口 \${PORT} 被进程占用"
+      echo "  PID: \$pid"
+      echo "  进程: \$process"
       echo "  详细信息:"
-      ps -fp \$PID 2>/dev/null || echo "无法获取进程信息"
+      ps -fp \$pid 2>/dev/null || echo "无法获取进程信息"
     else
-      echo -e "\033[0;32m✓ 端口 \${PORT} 未被占用\033[0m"
+      echo "✓ 端口 \${PORT} 未被占用"
     fi
   elif command -v netstat &> /dev/null; then
-    PID=\$(netstat -tlnp 2>/dev/null | grep ":\${PORT} " | awk '{print \$7}' | cut -d'/' -f1 | head -1)
-    if [ ! -z "\$PID" ]; then
-      PROCESS=\$(ps -p \$PID -o comm= 2>/dev/null || echo "unknown")
-      echo -e "\033[0;33m⚠ 端口 \${PORT} 被进程占用\033[0m"
-      echo "  PID: \$PID"
-      echo "  进程: \$PROCESS"
+    pid=\$(netstat -tlnp 2>/dev/null | grep ":\${PORT} " | awk '{print \$7}' | cut -d'/' -f1 | head -1)
+    if [ ! -z "\$pid" ]; then
+      process=\$(ps -p \$pid -o comm= 2>/dev/null || echo "unknown")
+      echo "⚠ 端口 \${PORT} 被进程占用"
+      echo "  PID: \$pid"
+      echo "  进程: \$process"
     else
-      echo -e "\033[0;32m✓ 端口 \${PORT} 未被占用\033[0m"
+      echo "✓ 端口 \${PORT} 未被占用"
     fi
   elif command -v ss &> /dev/null; then
-    PID=\$(ss -tlnp 2>/dev/null | grep ":\${PORT} " | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1)
-    if [ ! -z "\$PID" ]; then
-      PROCESS=\$(ps -p \$PID -o comm= 2>/dev/null || echo "unknown")
-      echo -e "\033[0;33m⚠ 端口 \${PORT} 被进程占用\033[0m"
-      echo "  PID: \$PID"
-      echo "  进程: \$PROCESS"
+    pid=\$(ss -tlnp 2>/dev/null | grep ":\${PORT} " | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1)
+    if [ ! -z "\$pid" ]; then
+      process=\$(ps -p \$pid -o comm= 2>/dev/null || echo "unknown")
+      echo "⚠ 端口 \${PORT} 被进程占用"
+      echo "  PID: \$pid"
+      echo "  进程: \$process"
     else
-      echo -e "\033[0;32m✓ 端口 \${PORT} 未被占用\033[0m"
+      echo "✓ 端口 \${PORT} 未被占用"
     fi
   else
-    echo -e "\033[0;33m⚠ 无法检查端口占用（未安装 lsof/netstat/ss）\033[0m"
+    echo "⚠ 无法检查端口占用（未安装 lsof/netstat/ss）"
   fi
   
   # 如果是 80 端口被占用，提供解决方案
-  if [ "\${PORT}" = "80" ] && [ ! -z "\$PID" ]; then
+  if [ "\${PORT}" = "80" ] && [ ! -z "\$pid" ]; then
     echo ""
     echo "=========================================="
     echo "端口 80 被占用，提供解决方案："
     echo "=========================================="
     echo ""
     echo "选项 1: 停止占用端口的进程（如果不需要）"
-    echo "  kill -9 \$PID"
+    echo "  kill -9 \$pid"
     echo ""
     echo "选项 2: 如果占用进程是 Apache，停止 Apache"
     if command -v systemctl &> /dev/null; then
@@ -962,24 +384,24 @@ for PORT in ${PORTS}; do
     echo "  或"
     echo "  pkill -f nginx"
     echo ""
-    echo "选项 4: 使用非标准端口（8080）"
-    echo "  修改 Nginx 配置，使用 8080 端口"
+    echo "选项 4: 使用非标准端口（8081）"
+    echo "  修改 Nginx 配置，使用 8081 端口"
     echo ""
     read -p "是否要停止占用端口 \${PORT} 的进程？(y/N): " -n 1 -r
     echo
     if [[ \$REPLY =~ ^[Yy]\$ ]]; then
-      echo "停止进程 \$PID..."
-      if kill -9 \$PID 2>/dev/null; then
-        echo -e "\033[0;32m✓ 进程已停止\033[0m"
+      echo "停止进程 \$pid..."
+      if kill -9 \$pid 2>/dev/null; then
+        echo "✓ 进程已停止"
         sleep 2
         # 再次检查
         if lsof -ti:\${PORT} > /dev/null 2>&1 || netstat -tlnp 2>/dev/null | grep ":\${PORT} " > /dev/null; then
-          echo -e "\033[0;33m⚠ 端口仍被占用，可能需要强制清理\033[0m"
+          echo "⚠ 端口仍被占用，可能需要强制清理"
         else
-          echo -e "\033[0;32m✓ 端口 \${PORT} 已释放\033[0m"
+          echo "✓ 端口 \${PORT} 已释放"
         fi
       else
-        echo -e "\033[0;31m✗ 无法停止进程，可能需要 root 权限\033[0m"
+        echo "✗ 无法停止进程，可能需要 root 权限"
       fi
     fi
   fi
@@ -996,9 +418,9 @@ echo "  或运行: ./book-excerpt.sh start-nginx"
 ENDSSH
 
   echo ""
-  echo -e "${GREEN}端口检查完成！${NC}"
+  print_success "端口检查完成！"
   echo ""
-  echo -e "${YELLOW}如果端口已释放，可以启动 Nginx:${NC}"
+  print_info "如果端口已释放，可以启动 Nginx:"
   echo -e "  ${BLUE}./book-excerpt.sh start-nginx${NC}"
 }
 
@@ -1006,20 +428,20 @@ ENDSSH
 # 检查状态
 # ============================================
 cmd_check() {
-  echo -e "${BLUE}检查前端应用部署状态...${NC}"
+  print_info "检查前端应用部署状态..."
 
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
+  ssh_exec << 'ENDSSH'
 echo "=========================================="
 echo "1. 检查部署目录"
 echo "=========================================="
 if [ -d "/var/www/html/book-excerpt-generator" ]; then
-  echo -e "\033[0;32m✓ 部署目录存在\033[0m"
+  echo "✓ 部署目录存在"
   echo "目录大小: $(du -sh /var/www/html/book-excerpt-generator 2>/dev/null | cut -f1)"
   echo ""
   echo "文件列表:"
   ls -lah /var/www/html/book-excerpt-generator | head -15
 else
-  echo -e "\033[0;31m✗ 部署目录不存在\033[0m"
+  echo "✗ 部署目录不存在"
 fi
 
 echo ""
@@ -1032,9 +454,9 @@ FILES=("index.html" "style.css" "js/index.js")
 for file in "${FILES[@]}"; do
   if [ -f "$file" ]; then
     size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "unknown")
-    echo -e "\033[0;32m✓ $file 存在 (${size} bytes)\033[0m"
+    echo "✓ $file 存在 (${size} bytes)"
   else
-    echo -e "\033[0;31m✗ $file 不存在\033[0m"
+    echo "✗ $file 不存在"
   fi
 done
 
@@ -1044,12 +466,12 @@ echo "3. 检查 JavaScript 文件"
 echo "=========================================="
 if [ -d "js" ]; then
   js_count=$(find js -type f -name "*.js" 2>/dev/null | wc -l)
-  echo -e "\033[0;32m✓ js/ 目录存在，包含 $js_count 个 JavaScript 文件\033[0m"
+  echo "✓ js/ 目录存在，包含 $js_count 个 JavaScript 文件"
   echo ""
   echo "JavaScript 文件列表:"
   find js -type f -name "*.js" 2>/dev/null | head -10
 else
-  echo -e "\033[0;31m✗ js/ 目录不存在\033[0m"
+  echo "✗ js/ 目录不存在"
 fi
 
 echo ""
@@ -1075,20 +497,20 @@ echo "=========================================="
 
 # 检查 Nginx
 if command -v nginx &> /dev/null; then
-  echo -e "\033[0;32m✓ Nginx 已安装\033[0m"
+  echo "✓ Nginx 已安装"
   if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
-    echo -e "\033[0;32m✓ Nginx 正在运行\033[0m"
+    echo "✓ Nginx 正在运行"
   else
-    echo -e "\033[0;33m⚠ Nginx 未运行\033[0m"
+    echo "⚠ Nginx 未运行"
     echo ""
     echo "启动 Nginx:"
     echo "  方法1: 运行 ./book-excerpt.sh start-nginx"
     echo "  方法2: ssh ${SERVER_USER}@${SERVER_HOST} 'systemctl start nginx'"
   fi
 elif [ -f "/etc/nginx/nginx.conf" ]; then
-  echo -e "\033[0;33m⚠ Nginx 配置文件存在但命令不可用\033[0m"
+  echo "⚠ Nginx 配置文件存在但命令不可用"
 else
-  echo -e "\033[0;33m⚠ Nginx 未安装\033[0m"
+  echo "⚠ Nginx 未安装"
   echo ""
   echo "安装 Nginx:"
   echo "  CentOS/RHEL: yum install -y nginx"
@@ -1097,11 +519,11 @@ fi
 
 # 检查 Apache
 if command -v apache2 &> /dev/null || command -v httpd &> /dev/null; then
-  echo -e "\033[0;32m✓ Apache 已安装\033[0m"
+  echo "✓ Apache 已安装"
   if systemctl is-active --quiet apache2 2>/dev/null || systemctl is-active --quiet httpd 2>/dev/null || service apache2 status &>/dev/null || service httpd status &>/dev/null; then
-    echo -e "\033[0;32m✓ Apache 正在运行\033[0m"
+    echo "✓ Apache 正在运行"
   else
-    echo -e "\033[0;33m⚠ Apache 未运行\033[0m"
+    echo "⚠ Apache 未运行"
   fi
 fi
 
@@ -1110,10 +532,10 @@ echo "=========================================="
 echo "6. 检查端口监听"
 echo "=========================================="
 if netstat -tlnp 2>/dev/null | grep -E ':(80|443)' > /dev/null || ss -tlnp 2>/dev/null | grep -E ':(80|443)' > /dev/null; then
-  echo -e "\033[0;32m✓ Web 服务器端口正在监听\033[0m"
+  echo "✓ Web 服务器端口正在监听"
   netstat -tlnp 2>/dev/null | grep -E ':(80|443)' || ss -tlnp 2>/dev/null | grep -E ':(80|443)'
 else
-  echo -e "\033[0;31m✗ 未检测到 Web 服务器端口监听（80 或 443）\033[0m"
+  echo "✗ 未检测到 Web 服务器端口监听（80 或 443）"
 fi
 
 echo ""
@@ -1124,12 +546,12 @@ cd /var/www/html/book-excerpt-generator 2>/dev/null || echo "无法进入部署�
 
 # 测试本地访问
 if curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null | grep -q "200\|301\|302"; then
-  echo -e "\033[0;32m✓ 本地 HTTP 访问成功\033[0m"
+  echo "✓ 本地 HTTP 访问成功"
   curl -s http://localhost/ | head -5
 elif curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/ 2>/dev/null | grep -q "200\|301\|302"; then
-  echo -e "\033[0;32m✓ 本地 HTTP 访问成功\033[0m"
+  echo "✓ 本地 HTTP 访问成功"
 else
-  echo -e "\033[0;33m⚠ 本地 HTTP 访问失败（可能需要配置 Web 服务器）\033[0m"
+  echo "⚠ 本地 HTTP 访问失败（可能需要配置 Web 服务器）"
 fi
 
 echo ""
@@ -1137,34 +559,34 @@ echo "=========================================="
 echo "8. 检查 Nginx 配置结构"
 echo "=========================================="
 if [ -f "/etc/nginx/nginx.conf" ]; then
-  echo -e "\033[0;32m✓ 主配置文件存在: /etc/nginx/nginx.conf\033[0m"
+  echo "✓ 主配置文件存在: /etc/nginx/nginx.conf"
   
   # 检查是否包含 conf.d
   if grep -q "include.*conf.d" /etc/nginx/nginx.conf; then
-    echo -e "\033[0;32m✓ 主配置文件包含 conf.d 目录\033[0m"
+    echo "✓ 主配置文件包含 conf.d 目录"
   else
-    echo -e "\033[0;33m⚠ 主配置文件未包含 conf.d 目录\033[0m"
+    echo "⚠ 主配置文件未包含 conf.d 目录"
     echo "需要在 /etc/nginx/nginx.conf 的 http {} 块内添加:"
     echo "  include /etc/nginx/conf.d/*.conf;"
   fi
   
   # 检查 conf.d 目录
   if [ -d "/etc/nginx/conf.d" ]; then
-    echo -e "\033[0;32m✓ conf.d 目录存在\033[0m"
+    echo "✓ conf.d 目录存在"
     echo "配置文件列表:"
     ls -lah /etc/nginx/conf.d/*.conf 2>/dev/null || echo "  无配置文件"
   else
-    echo -e "\033[0;33m⚠ conf.d 目录不存在\033[0m"
+    echo "⚠ conf.d 目录不存在"
   fi
   
   # 检查我们的配置文件
   if [ -f "/etc/nginx/conf.d/book-excerpt-generator.conf" ]; then
-    echo -e "\033[0;32m✓ 应用配置文件存在\033[0m"
+    echo "✓ 应用配置文件存在"
     echo ""
     echo "配置文件内容（前20行）:"
     head -20 /etc/nginx/conf.d/book-excerpt-generator.conf
   else
-    echo -e "\033[0;33m⚠ 应用配置文件不存在\033[0m"
+    echo "⚠ 应用配置文件不存在"
     echo "运行 ./book-excerpt.sh update-nginx 来上传配置"
   fi
   
@@ -1184,15 +606,15 @@ if [ -f "/etc/nginx/nginx.conf" ]; then
   
   if [ ! -z "$NGINX_CMD" ]; then
     if $NGINX_CMD -t 2>&1 | head -5; then
-      echo -e "\033[0;32m✓ Nginx 配置语法正确\033[0m"
+      echo "✓ Nginx 配置语法正确"
     else
-      echo -e "\033[0;31m✗ Nginx 配置语法错误\033[0m"
+      echo "✗ Nginx 配置语法错误"
     fi
   else
-    echo -e "\033[0;33m⚠ Nginx 未安装或未找到\033[0m"
+    echo "⚠ Nginx 未安装或未找到"
   fi
 else
-  echo -e "\033[0;33m⚠ Nginx 主配置文件不存在\033[0m"
+  echo "⚠ Nginx 主配置文件不存在"
 fi
 
 echo ""
@@ -1202,13 +624,13 @@ echo "=========================================="
 ENDSSH
 
   echo ""
-  echo -e "${GREEN}状态检查完成！${NC}"
+  print_success "状态检查完成！"
   echo ""
-  echo -e "${YELLOW}访问地址:${NC}"
+  print_info "访问地址:"
   echo -e "  ${GREEN}http://${SERVER_HOST}${NC}"
   echo -e "  ${GREEN}https://${SERVER_HOST}${NC}"
   echo ""
-  echo -e "${YELLOW}如果无法访问，请检查:${NC}"
+  print_info "如果无法访问，请检查:"
   echo -e "  1. Web 服务器（Nginx/Apache）是否运行"
   echo -e "  2. Web 服务器配置是否正确"
   echo -e "  3. 防火墙是否开放端口"
@@ -1221,11 +643,11 @@ ENDSSH
 cmd_clear_cache() {
   print_title "清除服务器缓存"
   
-  echo -e "${YELLOW}注意: 此操作主要清除服务器端缓存（如果有）${NC}"
-  echo -e "${YELLOW}浏览器缓存需要用户手动清除或强制刷新${NC}"
+  print_warning "注意: 此操作主要清除服务器端缓存（如果有）"
+  print_info "浏览器缓存需要用户手动清除或强制刷新"
   echo ""
   
-  ssh $SSH_OPTIONS -t -p ${SERVER_PORT} ${SSH_TARGET} << 'ENDSSH'
+  ssh_exec << 'ENDSSH'
 set -e
 
 echo "检查并清除可能的缓存..."
@@ -1234,9 +656,9 @@ echo "检查并清除可能的缓存..."
 if [ -d "/var/cache/nginx" ]; then
   echo "清除 Nginx 缓存..."
   rm -rf /var/cache/nginx/*
-  echo -e "\033[0;32m✓ Nginx 缓存已清除\033[0m"
+  echo "✓ Nginx 缓存已清除"
 else
-  echo -e "\033[0;33m⚠ Nginx 缓存目录不存在（可能未启用缓存）\033[0m"
+  echo "⚠ Nginx 缓存目录不存在（可能未启用缓存）"
 fi
 
 # 重新加载 Nginx（使配置生效）
@@ -1244,9 +666,9 @@ if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/
   echo ""
   echo "重新加载 Nginx 配置..."
   if systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null; then
-    echo -e "\033[0;32m✓ Nginx 已重新加载\033[0m"
+    echo "✓ Nginx 已重新加载"
   else
-    echo -e "\033[0;33m⚠ Nginx 重新加载失败（可能不需要）\033[0m"
+    echo "⚠ Nginx 重新加载失败（可能不需要）"
   fi
 fi
 
@@ -1264,34 +686,196 @@ ENDSSH
   echo ""
   print_success "缓存清除完成！"
   echo ""
-  echo -e "${YELLOW}下一步操作:${NC}"
+  print_info "下一步操作:"
   echo -e "  1. 在浏览器中强制刷新页面 (Ctrl+Shift+R 或 Cmd+Shift+R)"
   echo -e "  2. 或清除浏览器缓存"
   echo -e "  3. 或使用无痕模式访问网站"
 }
 
 # ============================================
+# Docker 相关函数
+# ============================================
+
+# 构建 Docker 镜像
+cmd_docker_build() {
+  print_info "构建 Docker 镜像..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  check_file_exists "Dockerfile" "未找到 Dockerfile" || return 1
+
+  local base_image="nginx:1.25-alpine"
+  local build_platform="${BUILD_PLATFORM:-linux/amd64}"
+  
+  # 检查基础镜像是否存在
+  if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${base_image}$"; then
+    print_info "拉取基础镜像..."
+    if ! docker pull --platform "$build_platform" "$base_image"; then
+      print_error "基础镜像拉取失败，请手动拉取: docker pull --platform $build_platform $base_image"
+      return 1
+    fi
+  fi
+
+  local build_msg="构建镜像（平台: ${build_platform}）..."
+  print_info "$build_msg"
+  if ! docker build --platform "$build_platform" -t "${DOCKER_IMAGE_NAME}:latest" .; then
+    print_error "Docker 镜像构建失败"
+    return 1
+  fi
+  
+  print_success "Docker 镜像构建完成！"
+  docker images | grep "$DOCKER_IMAGE_NAME" || true
+}
+
+# 启动 Docker 容器（本地调试）
+cmd_docker_up() {
+  print_info "启动 Docker 容器（本地调试模式）..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  check_file_exists "docker-compose.yml" "未找到 docker-compose.yml" || return 1
+  
+  local port="${PORT:-8081}"
+  if is_port_in_use "$port"; then
+    print_warning "端口 $port 已被占用"
+    echo "使用自定义端口: PORT=8081 ./scripts/book-excerpt.sh docker-up"
+    return 1
+  fi
+  
+  if ! docker-compose -f "$DOCKER_COMPOSE_FILE" up -d; then
+    print_error "Docker 容器启动失败"
+    return 1
+  fi
+  
+  echo ""
+  print_success "Docker 容器已启动！"
+  print_info "访问地址: http://localhost:${port}"
+  print_info "查看日志: ./scripts/book-excerpt.sh docker-logs"
+  print_info "停止容器: ./scripts/book-excerpt.sh docker-down"
+}
+
+# 停止 Docker 容器
+cmd_docker_down() {
+  print_info "停止 Docker 容器..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  docker-compose -f "$DOCKER_COMPOSE_FILE" down
+  
+  echo ""
+  print_success "Docker 容器已停止！"
+}
+
+# 查看 Docker 容器日志
+cmd_docker_logs() {
+  print_info "查看 Docker 容器日志..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  docker-compose -f "$DOCKER_COMPOSE_FILE" logs -f --tail=100
+}
+
+# 进入 Docker 容器 shell
+cmd_docker_shell() {
+  print_info "进入 Docker 容器 shell..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  
+  if ! docker ps --format "{{.Names}}" | grep -q "^${DOCKER_CONTAINER_NAME}$"; then
+    print_error "容器未运行，请先启动容器"
+    echo "启动容器: ./scripts/book-excerpt.sh docker-up"
+    return 1
+  fi
+  
+  docker exec -it "$DOCKER_CONTAINER_NAME" /bin/sh
+}
+
+# 重启 Docker 容器
+cmd_docker_restart() {
+  print_info "重启 Docker 容器..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  docker-compose -f "$DOCKER_COMPOSE_FILE" restart
+  
+  echo ""
+  print_success "Docker 容器已重启！"
+}
+
+# 使用 Docker 部署到服务器
+cmd_docker_deploy() {
+  print_info "使用 Docker 部署到服务器 ${SERVER_HOST}..."
+  echo ""
+  
+  cd "$PROJECT_ROOT" || return 1
+  
+  # 1. 构建镜像
+  print_info "[1/4] 构建 Docker 镜像..."
+  if ! cmd_docker_build; then
+    return 1
+  fi
+  
+  # 2. 导出镜像
+  print_info "[2/4] 导出镜像..."
+  local temp_image_file
+  temp_image_file=$(mktemp).tar.gz
+  register_cleanup "$temp_image_file"
+  
+  if ! docker save "${DOCKER_IMAGE_NAME}:latest" | gzip > "$temp_image_file"; then
+    print_error "镜像导出失败"
+    return 1
+  fi
+  
+  # 3. 上传镜像
+  print_info "[3/4] 上传镜像到服务器..."
+  local remote_image_file="/tmp/book-excerpt-generator-image.tar.gz"
+  if ! scp $SSH_OPTIONS -P "${SERVER_PORT}" "$temp_image_file" "${SSH_TARGET}:${remote_image_file}"; then
+    print_error "镜像上传失败"
+    return 1
+  fi
+  
+  # 4. 在服务器上加载并运行
+  print_info "[4/4] 在服务器上加载镜像并运行容器..."
+  ssh_exec << ENDSSH
+set -euo pipefail
+docker load < ${remote_image_file}
+docker stop ${DOCKER_CONTAINER_NAME} 2>/dev/null || true
+docker rm ${DOCKER_CONTAINER_NAME} 2>/dev/null || true
+docker run -d --name ${DOCKER_CONTAINER_NAME} --restart unless-stopped -p 127.0.0.1:8081:80 ${DOCKER_IMAGE_NAME}:latest
+rm -f ${remote_image_file}
+echo "✓ 容器已启动"
+docker ps | grep ${DOCKER_CONTAINER_NAME} || true
+ENDSSH
+  
+  echo ""
+  print_success "Docker 部署完成！"
+  print_info "容器端口: 127.0.0.1:8081"
+  print_info "配置 Nginx: ./scripts/book-excerpt.sh update-nginx scripts/book-excerpt.nginx.docker.conf"
+}
+
+# ============================================
 # 主函数
 # ============================================
 main() {
-  # 显示欢迎界面
-  show_welcome
-
-  # 解析命令
+  show_welcome "${1:-}"
   COMMAND="${1:-help}"
 
   case "$COMMAND" in
+    update-ssh-key)
+      cmd_update_ssh_key
+      ;;
     deploy)
       cmd_deploy
       ;;
     update-nginx)
-      cmd_update_nginx "$2"
+      cmd_update_nginx "${2:-}"
       ;;
     start-nginx)
       cmd_start_nginx
       ;;
     fix-port)
-      cmd_fix_port "$2"
+      cmd_fix_port "${2:-}"
       ;;
     check)
       cmd_check
@@ -1299,17 +883,41 @@ main() {
     clear-cache)
       cmd_clear_cache
       ;;
+    docker-build)
+      cmd_docker_build
+      ;;
+    docker-up)
+      cmd_docker_up
+      ;;
+    docker-down)
+      cmd_docker_down
+      ;;
+    docker-logs)
+      cmd_docker_logs
+      ;;
+    docker-shell)
+      cmd_docker_shell
+      ;;
+    docker-restart)
+      cmd_docker_restart
+      ;;
+    docker-deploy)
+      cmd_docker_deploy
+      ;;
     help|--help|-h)
       show_help
       ;;
     *)
-      echo -e "${RED}错误: 未知命令 '$COMMAND'${NC}"
+      print_error "未知命令 '$COMMAND'"
       echo ""
       show_help
       exit 1
       ;;
   esac
 }
+
+# 初始化 SSH 连接（在加载共用脚本后）
+init_ssh_connection
 
 # 执行主函数
 main "$@"

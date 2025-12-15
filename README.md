@@ -93,7 +93,7 @@ book-excerpt-generator/
 ├── scripts/                  # 部署脚本
 │   ├── book-excerpt.sh      # 统一管理脚本（包含所有部署和管理功能）
 │   ├── nginx.conf           # Nginx 配置文件
-│   └── book-excerpt.zhifu.tech_nginx/  # SSL 证书目录
+│   └── (SSL 证书位于 ../app-common/ssl/book-excerpt.zhifu.tech_nginx/)
 └── screenshots/              # 截图目录
     ├── desktop.png           # 桌面端预览截图
     ├── mobile-1.png          # 移动端预览截图 - 编辑界面

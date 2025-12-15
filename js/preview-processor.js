@@ -76,6 +76,8 @@ export class PreviewProcessor {
         position: relative !important;
         margin: 0 auto !important;
         max-width: none !important;
+        /* 保留卡片的圆角样式 */
+        border-radius: var(--radius-xl) !important;
       }
       /* 覆盖移动端媒体查询 */
       @media screen and (max-width: 768px) {
@@ -117,6 +119,8 @@ export class PreviewProcessor {
           position: relative !important;
           margin: 0 auto !important;
           max-width: none !important;
+          /* 保留卡片的圆角样式 */
+          border-radius: var(--radius-xl) !important;
         }
       }
       @media screen and (max-width: 380px) {

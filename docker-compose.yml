@@ -1,0 +1,33 @@
+services:
+  book-excerpt-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: book-excerpt-generator
+    ports:
+      - "${PORT:-8081}:80"
+    volumes:
+      # 开发模式：挂载源代码目录（热重载）
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./style.css:/usr/share/nginx/html/style.css:ro
+      - ./js:/usr/share/nginx/html/js:ro
+      - ./screenshots:/usr/share/nginx/html/screenshots:ro
+      # Nginx 配置（Docker 开发环境，仅 HTTP）
+      - ./scripts/nginx.docker.conf:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      - NGINX_HOST=${NGINX_HOST:-localhost}
+      - NGINX_PORT=${NGINX_PORT:-80}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - book-excerpt-network
+
+networks:
+  book-excerpt-network:
+    driver: bridge
+

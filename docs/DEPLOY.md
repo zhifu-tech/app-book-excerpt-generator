@@ -163,16 +163,11 @@ http {
 
 **脚本文件结构:**
 
-```
+```bash
 scripts/
 ├── book-excerpt.sh          # 统一管理脚本（包含所有功能）
 ├── nginx.conf               # Nginx 配置文件
-└── book-excerpt.zhifu.tech_nginx/  # SSL 证书目录
-    ├── book-excerpt.zhifu.tech_bundle.crt
-    ├── book-excerpt.zhifu.tech_bundle.pem
-    └── book-excerpt.zhifu.tech.key
 ```
-
 **Nginx 配置文件说明:**
 
 `scripts/nginx.conf` 包含：

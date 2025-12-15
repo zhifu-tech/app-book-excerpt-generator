@@ -310,6 +310,8 @@ export class MobilePreviewManager {
    */
   openPreview(previewArea) {
     const sidebar = this.dom.sidebar;
+    const downloadFab = this.dom.downloadFab;
+    const floatingActions = downloadFab?.closest(".floating-actions");
 
     // 步骤1：准备状态 - 通过 ThumbnailManager 获取当前状态
     const thumbnailState = this.thumbnailManager.getThumbnailState(previewArea);
@@ -331,6 +333,14 @@ export class MobilePreviewManager {
     previewArea.classList.add("preview-fullscreen", "active");
     this._applyState(previewArea, fullscreenState, true);
 
+    // 显示保存按钮（移动端）
+    if (floatingActions && Utils.isMobile()) {
+      floatingActions.style.display = "flex";
+      requestAnimationFrame(() => {
+        floatingActions.style.opacity = "1";
+      });
+    }
+
     // 更新应用状态
     document.body.style.overflow = "hidden";
     previewArea._dragDisabled = true;
@@ -342,10 +352,20 @@ export class MobilePreviewManager {
    */
   closePreview(previewArea) {
     const sidebar = this.dom.sidebar;
+    const downloadFab = this.dom.downloadFab;
+    const floatingActions = downloadFab?.closest(".floating-actions");
 
     // 步骤1：准备状态 - 通过 ThumbnailManager 获取缩略图状态
     const thumbnailState = this.thumbnailManager.getThumbnailState(previewArea);
     if (!thumbnailState) return;
+
+    // 隐藏保存按钮（移动端）
+    if (floatingActions && Utils.isMobile()) {
+      floatingActions.style.opacity = "0";
+      setTimeout(() => {
+        floatingActions.style.display = "none";
+      }, 300); // 等待透明度动画完成
+    }
 
     // 步骤2：设置初始状态（全屏预览状态）
     // 注意：此时 left/top 应该是 0（打开动画结束后设置的）

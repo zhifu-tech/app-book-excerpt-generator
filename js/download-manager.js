@@ -114,6 +114,11 @@ export class DownloadManager {
 
         // 克隆卡片到临时容器
         clonedCardForCapture = card.cloneNode(true);
+        
+        // 获取卡片的原始圆角样式
+        const cardComputedStyle = window.getComputedStyle(card);
+        const cardBorderRadius = cardComputedStyle.borderRadius || "16px"; // var(--radius-xl) 默认值
+        
         clonedCardForCapture.style.cssText = `
           transform: none !important;
           position: relative !important;
@@ -123,6 +128,7 @@ export class DownloadManager {
           height: auto !important;
           opacity: 1 !important;
           visibility: visible !important;
+          border-radius: ${cardBorderRadius} !important;
         `;
 
         // 应用卡片背景

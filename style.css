@@ -1207,9 +1207,9 @@ input[type="range"]::-moz-range-track {
     /* 默认全屏样式 */
     position: fixed !important;
     width: 100vw !important;
-    height: 80vh !important; /* 固定的缩略图高度 80vh */
-    min-height: 80vh !important;
-    max-height: 80vh !important; /* 最大高度为屏幕高度的 80% */
+    height: 100vh !important; /* 固定的缩略图高度 100vh */
+    min-height: 100vh !important;
+    max-height: 100vh !important; /* 最大高度为屏幕高度的 100% */
     padding: var(--spacing-xl) var(--spacing-md) !important;
     margin: 0 !important;
     overflow-y: auto !important;
@@ -1300,27 +1300,21 @@ input[type="range"]::-moz-range-track {
   }
 
   /* 移动端浮动预览按钮样式 */
-  /* 移动端显示 FAB 按钮 */
+  /* 移动端：缩略图状态下隐藏保存按钮，预览状态下显示 */
   .floating-actions {
-    display: flex;
+    position: fixed !important; /* 移动端保持固定定位 */
+    display: none; /* 默认隐藏（缩略图状态） */
     bottom: var(--spacing-lg);
     right: var(--spacing-lg);
+    left: auto;
+    top: auto;
+    z-index: 1001 !important; /* 确保在预览图之上（预览图 z-index 为 1000） */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
   }
 
-  .save-fab {
-    display: flex;
-  }
-
-  .sidebar-fab {
-    display: none; /* 移动端不显示侧边栏切换按钮 */
-  }
-
-  /* 移动端显示 FAB 按钮 */
-  .floating-actions {
-    display: flex;
-    bottom: var(--spacing-lg);
-    right: var(--spacing-lg);
-  }
+  /* 预览状态下显示保存按钮（由 JavaScript 控制显示/隐藏） */
 
   .save-fab {
     display: flex;
@@ -1457,7 +1451,7 @@ select {
   position: fixed;
   bottom: var(--spacing-xl);
   right: var(--spacing-xl); /* 默认右下角，桌面端会覆盖为左下角 */
-  z-index: 200;
+  z-index: 1001; /* 确保在预览图之上（预览图 z-index 为 1000） */
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -1561,10 +1555,11 @@ select {
     display: block;
   }
 
-  /* 桌面端：保存按钮在左下角 */
+  /* 桌面端：保存按钮在右下角（固定定位） */
   .floating-actions {
-    left: var(--spacing-xl);
-    right: auto;
+    position: fixed !important;
+    bottom: var(--spacing-xl);
+    right: var(--spacing-xl);
   }
 }
 
