@@ -9,6 +9,7 @@ import { PreviewManager } from "./preview-manager.js";
 import { ThumbnailManager } from "./thumbnail-manager.js";
 import { DownloadManager } from "./download-manager.js";
 import { MobilePreviewManager } from "./mobile-preview-manager.js";
+import { CacheManager } from "./cache-manager.js";
 import { CONFIG, initConfig } from "./config.js";
 import { Utils } from "./utils.js";
 
@@ -35,6 +36,8 @@ export class BookExcerptApp {
     this.download = null;
     /** @type {MobilePreviewManager} 移动端预览管理器 */
     this.mobilePreview = new MobilePreviewManager(this.dom, this.thumbnail, this.state);
+    /** @type {CacheManager} 缓存管理器 */
+    this.cache = new CacheManager();
   }
 
   /**
@@ -49,6 +52,9 @@ export class BookExcerptApp {
     if (dateEl) {
       dateEl.textContent = Utils.formatDate();
     }
+
+    // 从缓存加载 sidebar 内容（优先使用缓存）
+    const hasCachedContent = this.loadSidebarContentFromCache();
 
     // 初始化侧边栏宽度调整功能
     this.initSidebarResizer();
@@ -87,7 +93,7 @@ export class BookExcerptApp {
     // 绑定事件
     this.bindEvents();
 
-    // 初始化预览
+    // 初始化预览（如果从缓存加载了内容，预览会自动使用缓存的值）
     this.preview.updatePreview();
     this.preview.updateSeal();
 
@@ -254,6 +260,52 @@ export class BookExcerptApp {
   }
 
   /**
+   * 从缓存加载 sidebar 内容
+   * @private
+   * @returns {boolean} 是否成功加载了缓存内容
+   */
+  loadSidebarContentFromCache() {
+    // 检查是否有缓存内容
+    if (!this.cache.hasCachedContent()) {
+      return false;
+    }
+
+    const cachedContent = this.cache.loadSidebarContent();
+    const { quoteInput, bookInput, authorInput, sealInput } = this.dom.elements;
+
+    // 从缓存加载内容（优先使用缓存，即使为空字符串也使用）
+    if (quoteInput && cachedContent.quote !== undefined) {
+      quoteInput.value = cachedContent.quote;
+    }
+    if (bookInput && cachedContent.book !== undefined) {
+      bookInput.value = cachedContent.book;
+    }
+    if (authorInput && cachedContent.author !== undefined) {
+      authorInput.value = cachedContent.author;
+    }
+    if (sealInput && cachedContent.seal !== undefined) {
+      sealInput.value = cachedContent.seal;
+    }
+
+    return true;
+  }
+
+  /**
+   * 保存 sidebar 内容到缓存
+   * @private
+   */
+  saveSidebarContentToCache() {
+    const { quoteInput, bookInput, authorInput, sealInput } = this.dom.elements;
+
+    this.cache.saveSidebarContent({
+      quote: quoteInput?.value || "",
+      book: bookInput?.value || "",
+      author: authorInput?.value || "",
+      seal: sealInput?.value || "",
+    });
+  }
+
+  /**
    * 绑定所有事件监听器
    * @private
    */
@@ -263,6 +315,8 @@ export class BookExcerptApp {
     const updatePreviewAndThumbnail = () => {
       this.preview.updatePreview();
       this.thumbnail.updateThumbnail();
+      // 保存到缓存
+      this.saveSidebarContentToCache();
     };
 
     [quoteInput, bookInput, authorInput].forEach((input) => {
@@ -272,6 +326,8 @@ export class BookExcerptApp {
     sealInput?.addEventListener("input", () => {
       this.preview.updateSeal();
       this.thumbnail.updateThumbnail();
+      // 保存到缓存
+      this.saveSidebarContentToCache();
     });
 
     // 布局切换
