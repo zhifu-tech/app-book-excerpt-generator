@@ -102,12 +102,13 @@ show_help() {
   echo -e "  ${GREEN}SSH 配置:${NC}"
   echo -e "  ${GREEN}update-ssh-key${NC}     更新 SSH 公钥到服务器"
   echo ""
-  echo -e "  ${GREEN}部署:${NC}"
-  echo -e "  ${GREEN}deploy${NC}             部署前端应用到服务器"
-  echo ""
   echo -e "  ${GREEN}Nginx 配置:${NC}"
   echo -e "  ${GREEN}update-nginx${NC}       更新 Nginx 配置文件"
   echo -e "  ${GREEN}start-nginx${NC}        启动 Nginx 服务"
+  echo -e "  ${GREEN}restart-nginx${NC}      重启 Nginx 服务"
+  echo ""
+  echo -e "  ${GREEN}部署:${NC}"
+  echo -e "  ${GREEN}docker-deploy${NC}       使用 Docker 部署到服务器（推荐）"
   echo ""
   echo -e "  ${GREEN}Docker 命令:${NC}"
   echo -e "  ${GREEN}docker-build${NC}        构建 Docker 镜像"
@@ -116,7 +117,6 @@ show_help() {
   echo -e "  ${GREEN}docker-logs${NC}         查看 Docker 容器日志"
   echo -e "  ${GREEN}docker-shell${NC}        进入 Docker 容器 shell"
   echo -e "  ${GREEN}docker-restart${NC}      重启 Docker 容器"
-  echo -e "  ${GREEN}docker-deploy${NC}       使用 Docker 部署到服务器"
   echo ""
   echo -e "  ${GREEN}工具:${NC}"
   echo -e "  ${GREEN}fix-port${NC}           修复端口占用问题"
@@ -127,10 +127,10 @@ show_help() {
   echo ""
   echo -e "${YELLOW}示例:${NC}"
   echo "  ./book-excerpt.sh update-ssh-key"
-  echo "  ./book-excerpt.sh deploy"
-  echo "  ./book-excerpt.sh update-nginx"
-  echo "  ./book-excerpt.sh docker-up"
   echo "  ./book-excerpt.sh docker-deploy"
+  echo "  ./book-excerpt.sh update-nginx"
+  echo "  ./book-excerpt.sh restart-nginx"
+  echo "  ./book-excerpt.sh docker-up"
   echo ""
 }
 
@@ -149,97 +149,6 @@ cmd_update_ssh_key() {
   echo ""
   print_success "SSH 登录认证信息已更新！"
   print_info "现在可以使用 SSH 密钥无密码登录服务器"
-}
-
-# ============================================
-# 部署功能
-# ============================================
-cmd_deploy() {
-  print_info "开始部署前端应用到服务器 ${SERVER_HOST}..."
-  echo ""
-  
-  cd "$PROJECT_ROOT" || return 1
-  
-  # 检查本地文件
-  check_file_exists "index.html" "未找到 index.html，请确保在项目根目录执行" || return 1
-  check_dir_exists "js" "未找到 js/ 目录，请确保在项目根目录执行" || return 1
-
-  # 创建临时部署目录
-  TEMP_DIR=$(mktemp -d)
-  register_cleanup "$TEMP_DIR"
-  print_info "创建临时目录: ${TEMP_DIR}"
-
-  # 复制必要文件
-  print_info "复制文件..."
-
-  # 复制核心文件
-  cp index.html style.css "$TEMP_DIR/" 2>/dev/null || true
-
-  # 复制 JavaScript 目录
-  if [ -d "js" ]; then
-    cp -r js "$TEMP_DIR/"
-    print_success "已复制 js/ 目录"
-  fi
-
-  # 复制截图目录（如果存在）
-  if [ -d "screenshots" ]; then
-    cp -r screenshots "$TEMP_DIR/" 2>/dev/null || true
-    print_success "已复制 screenshots/ 目录"
-  fi
-
-  # 复制其他可能需要的文件
-  [ -f "package.json" ] && cp package.json "$TEMP_DIR/" 2>/dev/null || true
-  [ -f "README.md" ] && cp README.md "$TEMP_DIR/" 2>/dev/null || true
-
-  # 上传文件到服务器
-  print_info "上传文件到服务器..."
-  ssh_exec "mkdir -p ${APP_DIR}"
-  scp $SSH_OPTIONS -r -P ${SERVER_PORT} "$TEMP_DIR"/* ${SSH_TARGET}:${APP_DIR}/
-
-  # 在服务器上执行部署后操作
-  print_info "在服务器上配置权限和验证部署..."
-  ssh_exec << ENDSSH
-cd ${APP_DIR}
-
-# 设置文件权限
-echo "设置文件权限..."
-chmod -R 755 ${APP_DIR}
-chown -R nginx:nginx ${APP_DIR} 2>/dev/null || chown -R www-data:www-data ${APP_DIR} 2>/dev/null || echo "无法设置文件所有者（可能需要手动设置）"
-
-# 验证关键文件
-echo ""
-echo "验证部署文件..."
-[ -f "index.html" ] && echo "✓ index.html 存在" || echo "✗ index.html 不存在"
-[ -f "style.css" ] && echo "✓ style.css 存在" || echo "✗ style.css 不存在"
-[ -d "js" ] && {
-  echo "✓ js/ 目录存在"
-  echo "  JavaScript 文件数量: \$(find js -type f -name '*.js' | wc -l)"
-} || echo "✗ js/ 目录不存在"
-ENDSSH
-
-  echo ""
-  print_success "部署完成！"
-  print_info "访问地址:"
-  echo -e "  ${GREEN}http://${SERVER_HOST}${NC}"
-  echo -e "  ${GREEN}https://${SERVER_HOST}${NC}"
-  echo ""
-  print_warning "⚠️  重要提示：使改动生效"
-  print_info "由于浏览器缓存，可能需要以下操作之一："
-  echo ""
-  echo -e "  ${GREEN}方法 1: 强制刷新浏览器（推荐）${NC}"
-  echo -e "    ${BLUE}Windows/Linux:${NC} Ctrl + Shift + R 或 Ctrl + F5"
-  echo -e "    ${BLUE}macOS:${NC} Cmd + Shift + R"
-  echo ""
-  echo -e "  ${GREEN}方法 2: 清除浏览器缓存${NC}"
-  echo -e "    在浏览器设置中清除缓存和 Cookie"
-  echo ""
-  echo -e "  ${GREEN}方法 3: 使用无痕/隐私模式${NC}"
-  echo -e "    打开浏览器的无痕模式访问网站"
-  echo ""
-  echo -e "  ${GREEN}方法 4: 添加版本参数（开发测试）${NC}"
-  echo -e "    访问: ${BLUE}https://${SERVER_HOST}?v=$(date +%s)${NC}"
-  echo ""
-  print_info "如果使用 CDN 或反向代理，可能还需要清除 CDN 缓存"
 }
 
 # ============================================
@@ -298,6 +207,61 @@ cmd_start_nginx() {
   start_nginx_service "ssh_exec" "$SSH_TARGET"
   echo ""
   print_success "Nginx 启动完成！"
+}
+
+# ============================================
+# 重启 Nginx
+# ============================================
+cmd_restart_nginx() {
+  print_info "重启 Nginx 服务..."
+  
+  ssh_exec << 'ENDSSH'
+set -e
+
+NGINX_CMD=$(command -v nginx || echo "/usr/sbin/nginx" || echo "/usr/local/sbin/nginx" || echo "/sbin/nginx" || echo "")
+
+[ -z "$NGINX_CMD" ] && {
+  echo "✗ Nginx 未安装"
+  [ -f /etc/redhat-release ] && echo "安装: yum install -y nginx"
+  [ -f /etc/debian_version ] && echo "安装: apt-get install -y nginx"
+  exit 1
+}
+
+echo "✓ Nginx: $($NGINX_CMD -v 2>&1)"
+
+# 检查配置语法
+echo "检查 Nginx 配置语法..."
+$NGINX_CMD -t 2>&1 || { echo "✗ Nginx 配置语法错误"; exit 1; }
+echo "✓ Nginx 配置语法正确"
+
+# 重启 Nginx
+echo ""
+echo "正在重启 Nginx..."
+if systemctl restart nginx 2>/dev/null || service nginx restart 2>/dev/null; then
+  echo "✓ Nginx 重启命令已执行"
+  sleep 2
+  
+  # 检查状态
+  if systemctl is-active --quiet nginx 2>/dev/null || service nginx status &>/dev/null; then
+    echo "✓ Nginx 已成功重启并正在运行"
+  else
+    echo "⚠ Nginx 重启后未运行，尝试启动..."
+    systemctl start nginx 2>/dev/null || service nginx start 2>/dev/null || { echo "✗ Nginx 启动失败"; exit 1; }
+    echo "✓ Nginx 已启动"
+  fi
+else
+  echo "✗ Nginx 重启失败"
+  exit 1
+fi
+
+# 显示状态
+echo ""
+echo "Nginx 服务状态:"
+systemctl status nginx --no-pager -l 2>/dev/null | head -10 || service nginx status 2>/dev/null | head -10 || echo "无法获取详细状态"
+ENDSSH
+
+  echo ""
+  print_success "Nginx 重启完成！"
 }
 
 # ============================================
@@ -810,14 +774,18 @@ cmd_docker_deploy() {
   
   cd "$PROJECT_ROOT" || return 1
   
+  # 检查必要文件
+  check_file_exists "Dockerfile" "未找到 Dockerfile" || return 1
+  check_file_exists "scripts/book-excerpt.nginx.docker.conf" "未找到 Nginx Docker 配置文件" || return 1
+  
   # 1. 构建镜像
-  print_info "[1/4] 构建 Docker 镜像..."
+  print_info "[1/5] 构建 Docker 镜像..."
   if ! cmd_docker_build; then
     return 1
   fi
   
   # 2. 导出镜像
-  print_info "[2/4] 导出镜像..."
+  print_info "[2/5] 导出镜像..."
   local temp_image_file
   temp_image_file=$(mktemp).tar.gz
   register_cleanup "$temp_image_file"
@@ -828,30 +796,95 @@ cmd_docker_deploy() {
   fi
   
   # 3. 上传镜像
-  print_info "[3/4] 上传镜像到服务器..."
+  print_info "[3/5] 上传镜像到服务器..."
   local remote_image_file="/tmp/book-excerpt-generator-image.tar.gz"
   if ! scp $SSH_OPTIONS -P "${SERVER_PORT}" "$temp_image_file" "${SSH_TARGET}:${remote_image_file}"; then
     print_error "镜像上传失败"
     return 1
   fi
   
-  # 4. 在服务器上加载并运行
-  print_info "[4/4] 在服务器上加载镜像并运行容器..."
+  # 4. 在服务器上加载并运行容器
+  print_info "[4/5] 在服务器上加载镜像并运行容器..."
   ssh_exec << ENDSSH
 set -euo pipefail
+
+echo "加载 Docker 镜像..."
 docker load < ${remote_image_file}
+rm -f ${remote_image_file}
+
+echo "停止并删除旧容器（如果存在）..."
 docker stop ${DOCKER_CONTAINER_NAME} 2>/dev/null || true
 docker rm ${DOCKER_CONTAINER_NAME} 2>/dev/null || true
-docker run -d --name ${DOCKER_CONTAINER_NAME} --restart unless-stopped -p 127.0.0.1:8081:80 ${DOCKER_IMAGE_NAME}:latest
-rm -f ${remote_image_file}
-echo "✓ 容器已启动"
-docker ps | grep ${DOCKER_CONTAINER_NAME} || true
+
+echo "启动新容器..."
+docker run -d \
+  --name ${DOCKER_CONTAINER_NAME} \
+  --restart unless-stopped \
+  -p 127.0.0.1:8081:80 \
+  ${DOCKER_IMAGE_NAME}:latest
+
+echo "等待容器启动..."
+sleep 3
+
+echo "检查容器状态..."
+if docker ps | grep -q ${DOCKER_CONTAINER_NAME}; then
+  echo "✓ 容器已成功启动"
+  docker ps | grep ${DOCKER_CONTAINER_NAME}
+else
+  echo "✗ 容器启动失败"
+  echo "容器日志:"
+  docker logs ${DOCKER_CONTAINER_NAME} 2>&1 | tail -20
+  exit 1
+fi
+
+echo "检查容器健康状态..."
+if docker inspect --format='{{.State.Health.Status}}' ${DOCKER_CONTAINER_NAME} 2>/dev/null | grep -q "healthy\|none"; then
+  echo "✓ 容器运行正常"
+else
+  echo "⚠ 容器健康检查未通过，但容器正在运行"
+fi
+
+echo "测试容器 HTTP 访问..."
+if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/ | grep -q "200\|301\|302"; then
+  echo "✓ 容器 HTTP 服务正常"
+else
+  echo "⚠ 容器 HTTP 服务可能未就绪，请稍后重试"
+fi
 ENDSSH
+  
+  if [ $? -ne 0 ]; then
+    print_error "容器部署失败"
+    return 1
+  fi
+  
+  # 5. 更新 Nginx 配置并重启
+  print_info "[5/5] 更新 Nginx 配置并重启服务..."
+  local nginx_docker_conf="$SCRIPT_DIR/book-excerpt.nginx.docker.conf"
+  if ! cmd_update_nginx "$nginx_docker_conf"; then
+    print_warning "Nginx 配置更新失败，但容器已部署"
+    print_info "可以手动运行: ./scripts/book-excerpt.sh update-nginx scripts/book-excerpt.nginx.docker.conf"
+  else
+    # 重启 Nginx 确保配置生效
+    if ! cmd_restart_nginx; then
+      print_warning "Nginx 重启失败，但容器已部署"
+      print_info "可以手动运行: ./scripts/book-excerpt.sh restart-nginx"
+    fi
+  fi
   
   echo ""
   print_success "Docker 部署完成！"
-  print_info "容器端口: 127.0.0.1:8081"
-  print_info "配置 Nginx: ./scripts/book-excerpt.sh update-nginx scripts/book-excerpt.nginx.docker.conf"
+  echo ""
+  print_info "部署信息:"
+  echo -e "  容器名称: ${BLUE}${DOCKER_CONTAINER_NAME}${NC}"
+  echo -e "  容器端口: ${BLUE}127.0.0.1:8081${NC}"
+  echo -e "  访问地址:"
+  echo -e "    ${GREEN}http://${SERVER_HOST}${NC}"
+  echo -e "    ${GREEN}https://${SERVER_HOST}${NC}"
+  echo ""
+  print_info "管理命令:"
+  echo -e "  查看日志: ${BLUE}ssh ${SERVER_USER}@${SERVER_HOST} 'docker logs -f ${DOCKER_CONTAINER_NAME}'${NC}"
+  echo -e "  重启容器: ${BLUE}ssh ${SERVER_USER}@${SERVER_HOST} 'docker restart ${DOCKER_CONTAINER_NAME}'${NC}"
+  echo -e "  查看状态: ${BLUE}ssh ${SERVER_USER}@${SERVER_HOST} 'docker ps | grep ${DOCKER_CONTAINER_NAME}'${NC}"
 }
 
 # ============================================
@@ -865,14 +898,14 @@ main() {
     update-ssh-key)
       cmd_update_ssh_key
       ;;
-    deploy)
-      cmd_deploy
-      ;;
     update-nginx)
       cmd_update_nginx "${2:-}"
       ;;
     start-nginx)
       cmd_start_nginx
+      ;;
+    restart-nginx)
+      cmd_restart_nginx
       ;;
     fix-port)
       cmd_fix_port "${2:-}"

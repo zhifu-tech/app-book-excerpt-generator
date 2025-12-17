@@ -88,112 +88,111 @@ export class DownloadManager {
         finalScale
       );
 
-      // 移动端特殊处理：将卡片克隆到干净的临时容器中，避免父元素背景影响
-      // 这是解决移动端白色蒙层问题的唯一有效方案
-      const isMobile = Utils.isMobile();
+      // 统一使用临时容器方案：将卡片克隆到干净的临时容器中，避免父元素背景影响
+      // 这是解决白色蒙层问题的有效方案（适用于移动端和 Mac Safari）
       let tempContainer = null;
       let clonedCardForCapture = card;
 
-      if (isMobile) {
-        // 创建临时容器（完全干净的 DOM 环境）
-        // 注意：不设置固定高度，让容器自适应内容高度，避免底部空白
-        tempContainer = document.createElement("div");
-        tempContainer.style.cssText = `
-          position: absolute;
-          left: -9999px;
-          top: 0;
-          width: ${targetWidth}px;
-          min-height: ${targetHeight}px;
-          background: transparent;
-          padding: 0;
-          margin: 0;
-          border: none;
-          overflow: visible;
-        `;
-        document.body.appendChild(tempContainer);
+      // 创建临时容器（完全干净的 DOM 环境）
+      // 注意：不设置固定高度，让容器自适应内容高度，避免底部空白
+      tempContainer = document.createElement("div");
+      tempContainer.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        width: ${targetWidth}px;
+        min-height: ${targetHeight}px;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        border: none;
+        overflow: visible;
+      `;
+      document.body.appendChild(tempContainer);
 
-        // 克隆卡片到临时容器
-        clonedCardForCapture = card.cloneNode(true);
-        
-        // 获取卡片的原始圆角样式
-        const cardComputedStyle = window.getComputedStyle(card);
-        const cardBorderRadius = cardComputedStyle.borderRadius || "16px"; // var(--radius-xl) 默认值
-        
-        clonedCardForCapture.style.cssText = `
-          transform: none !important;
-          position: relative !important;
-          margin: 0 !important;
-          width: ${targetWidth}px !important;
-          min-height: auto !important;
-          height: auto !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-          border-radius: ${cardBorderRadius} !important;
-        `;
+      // 克隆卡片到临时容器
+      clonedCardForCapture = card.cloneNode(true);
+      
+      // 获取卡片的原始圆角样式
+      const cardComputedStyle = window.getComputedStyle(card);
+      const cardBorderRadius = cardComputedStyle.borderRadius || "16px"; // var(--radius-xl) 默认值
+      
+      clonedCardForCapture.style.cssText = `
+        position: relative !important;
+        margin: 0 !important;
+        width: ${targetWidth}px !important;
+        min-height: auto !important;
+        height: auto !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        border-radius: ${cardBorderRadius} !important;
+        overflow: hidden !important;
+        transform: translateZ(0) !important;
+        -webkit-transform: translateZ(0) !important;
+        backface-visibility: hidden !important;
+        -webkit-backface-visibility: hidden !important;
+      `;
 
-        // 应用卡片背景
-        if (currentTheme?.background) {
-          clonedCardForCapture.style.setProperty(
-            "background",
-            currentTheme.background,
-            "important"
-          );
-        } else if (currentTheme?.color) {
-          clonedCardForCapture.style.setProperty(
-            "background-color",
-            currentTheme.color,
-            "important"
-          );
-        } else if (
-          cardBackground?.backgroundColor &&
-          cardBackground.backgroundColor !== "transparent"
-        ) {
-          clonedCardForCapture.style.setProperty(
-            "background-color",
-            cardBackground.backgroundColor,
-            "important"
-          );
-        } else {
-          clonedCardForCapture.style.setProperty("background-color", "#fff", "important");
-        }
-
-        tempContainer.appendChild(clonedCardForCapture);
-
-        // 等待 DOM 渲染完成
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        // 对于竖排布局，需要在临时容器中直接处理
-        // 因为临时容器中的卡片不在 html2canvas 的 clonedDoc 中
-        if (this.state.layout === "vertical") {
-          // 创建一个虚拟的 document 对象，用于 processVerticalLayout
-          const virtualDoc = {
-            getElementById: (id) => {
-              if (id === "card-preview") return clonedCardForCapture;
-              return null;
-            },
-            createElement: (tag) => document.createElement(tag),
-            defaultView: window,
-          };
-
-          // 处理竖排布局
-          this.processor.processVerticalLayout(virtualDoc);
-
-          // 等待竖排布局渲染完成
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-
-        // 重新计算实际高度（处理竖排布局后）
-        const actualHeight = clonedCardForCapture.offsetHeight || clonedCardForCapture.scrollHeight;
-        if (actualHeight > 0) {
-          // 更新临时容器高度为实际内容高度
-          tempContainer.style.height = `${actualHeight}px`;
-        }
+      // 应用卡片背景
+      if (currentTheme?.background) {
+        clonedCardForCapture.style.setProperty(
+          "background",
+          currentTheme.background,
+          "important"
+        );
+      } else if (currentTheme?.color) {
+        clonedCardForCapture.style.setProperty(
+          "background-color",
+          currentTheme.color,
+          "important"
+        );
+      } else if (
+        cardBackground?.backgroundColor &&
+        cardBackground.backgroundColor !== "transparent"
+      ) {
+        clonedCardForCapture.style.setProperty(
+          "background-color",
+          cardBackground.backgroundColor,
+          "important"
+        );
+      } else {
+        clonedCardForCapture.style.setProperty("background-color", "#fff", "important");
       }
 
-      // 对于移动端临时容器，不设置固定 height，让 html2canvas 自动计算
-      const canvasOptions = isMobile
-        ? { ...options, height: undefined } // 移除固定高度，让 html2canvas 自动计算
-        : options;
+      tempContainer.appendChild(clonedCardForCapture);
+
+      // 等待 DOM 渲染完成
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // 对于竖排布局，需要在临时容器中直接处理
+      // 因为临时容器中的卡片不在 html2canvas 的 clonedDoc 中
+      if (this.state.layout === "vertical") {
+        // 创建一个虚拟的 document 对象，用于 processVerticalLayout
+        const virtualDoc = {
+          getElementById: (id) => {
+            if (id === "card-preview") return clonedCardForCapture;
+            return null;
+          },
+          createElement: (tag) => document.createElement(tag),
+          defaultView: window,
+        };
+
+        // 处理竖排布局
+        this.processor.processVerticalLayout(virtualDoc);
+
+        // 等待竖排布局渲染完成
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      // 重新计算实际高度（处理竖排布局后）
+      const actualHeight = clonedCardForCapture.offsetHeight || clonedCardForCapture.scrollHeight;
+      if (actualHeight > 0) {
+        // 更新临时容器高度为实际内容高度
+        tempContainer.style.height = `${actualHeight}px`;
+      }
+
+      // 对于临时容器，不设置固定 height，让 html2canvas 自动计算
+      const canvasOptions = { ...options, height: undefined };
 
       const canvas = await html2canvas(clonedCardForCapture, canvasOptions);
 
@@ -352,6 +351,11 @@ export class DownloadManager {
           clonedCard.style.setProperty("height", "auto", "important");
           clonedCard.style.setProperty("min-height", "auto", "important");
           clonedCard.style.setProperty("max-height", "none", "important");
+
+          // 优化圆角渲染，确保圆角边缘平滑
+          clonedCard.style.setProperty("overflow", "hidden", "important");
+          clonedCard.style.setProperty("backface-visibility", "hidden", "important");
+          clonedCard.style.setProperty("-webkit-backface-visibility", "hidden", "important");
 
           // 强制应用文字渲染优化样式
           clonedCard.style.setProperty("-webkit-font-smoothing", "antialiased", "important");
