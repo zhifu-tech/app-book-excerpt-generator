@@ -55,6 +55,14 @@
 - **ESLint** - 代码质量检查
 - **Prettier** - 代码格式化
 
+## 后端服务
+
+本项目需要配套的后端服务 [book-excerpt-generator-server](../book-excerpt-generator-server) 一起使用，以支持：
+- 动态配置加载（主题、字体、颜色等）
+- 配置信息的保存和同步
+
+如果未连接到服务器，应用将自动回退到使用内置的默认配置。
+
 ## 文件结构
 
 ```sh
