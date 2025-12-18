@@ -57,102 +57,93 @@
 
 ## 后端服务
 
-本项目需要配套的后端服务 [book-excerpt-generator-server](../book-excerpt-generator-server) 一起使用，以支持：
+本项目包含配套的后端服务，位于 `server/` 目录下，以支持：
 - 动态配置加载（主题、字体、颜色等）
 - 配置信息的保存和同步
 
-如果未连接到服务器，应用将自动回退到使用内置的默认配置。
+如果未连接到服务器，前端应用将自动回退到使用内置的默认配置。
+
+## 核心组件说明
+
+### 1. 统一管理脚本 (run.sh)
+位于根目录的 `run.sh` 是管理整个项目的唯一入口。它封装了：
+- 前端和后端的部署流程（支持 Docker 和 PM2）
+- 远程服务器的状态检查
+- Nginx 配置的自动化更新
+- 数据同步工具
+
+### 2. 前端应用 (app)
+前端采用纯原生 JavaScript 开发，使用 ES6 模块化方案。
+- **PreviewProcessor**: 核心逻辑，确保在实时预览、导出图片和移动端预览时保持视觉一致。
+- **State Management**: 使用单一状态机管理应用数据。
+
+### 3. 后端服务 (server)
+后端使用 Node.js + Express 架构。
+- **Dynamic Config**: 支持动态加载和更新主题、字体等配置，无需重新发布前端。
+- **Persistence**: 简单的 JSON 文件存储，方便备份和同步。
+
+## 开发规范
+
+- **前后端解耦**: 前端通过 API 与后端通信，支持离线降级到默认配置。
+- **脚本驱动**: 所有的管理和部署操作都应通过 `run.sh` 完成，避免手动操作服务器。
+- **环境一致性**: 使用 Docker 确保开发、测试和生产环境的一致性。
 
 ## 文件结构
 
 ```sh
 book-excerpt-generator/
-├── index.html                 # 主页面
-├── js/                        # JavaScript 模块
-│   ├── index.js              # 入口文件
-│   ├── app.js                # 主应用
-│   ├── config.js             # 配置管理
-│   ├── config-service.js     # 配置服务（API 调用）
-│   ├── state.js              # 状态管理
-│   ├── utils.js              # 工具函数
-│   ├── utils/
-│   │   └── logger.js         # 日志管理
-│   ├── constants/
-│   │   └── index.js          # 常量定义
-│   ├── types/
-│   │   └── index.js          # 类型定义（JSDoc）
-│   ├── dom-manager.js        # DOM元素管理
-│   ├── renderer.js           # UI渲染器
-│   ├── preview-manager.js    # 预览管理器
-│   ├── preview-processor.js # 统一预览处理器
-│   ├── thumbnail-manager.js # 缩略图管理器
-│   ├── mobile-preview-manager.js # 移动端预览管理器
-│   └── download-manager.js   # 下载管理器
-├── style.css                 # 样式文件
-├── package.json              # 项目配置
-├── .eslintrc.json            # ESLint 配置
-├── .prettierrc               # Prettier 配置
-├── jsconfig.json             # TypeScript/JSDoc 配置
-├── README.md                 # 说明文档
-├── docs/                     # 文档目录
-│   ├── API_DOCUMENTATION.md  # API 文档
-│   ├── DEPLOY.md             # 部署指南
-│   └── CACHE_MANAGEMENT.md   # 缓存管理指南
-├── scripts/                  # 部署脚本
-│   ├── book-excerpt.sh      # 统一管理脚本（包含所有部署和管理功能）
-│   ├── nginx.conf           # Nginx 配置文件
-│   └── (SSL 证书位于 ../app-common/ssl/book-excerpt.zhifu.tech_nginx/)
-└── screenshots/              # 截图目录
-    ├── desktop.png           # 桌面端预览截图
-    ├── mobile-1.png          # 移动端预览截图 - 编辑界面
-    └── mobile-2.png          # 移动端预览截图 - 全屏预览
+├── app/                        # 前端应用
+│   ├── index.html              # 主页面
+│   ├── style.css               # 样式文件
+│   ├── js/                     # JavaScript 模块
+│   ├── scripts/                # 前端 Nginx 配置与 SSL
+│   ├── package.json           # 前端依赖配置
+│   └── Dockerfile             # 前端 Docker 镜像
+├── server/                     # 后端服务
+│   ├── server.js               # 服务器入口
+│   ├── src/                    # 后端源代码
+│   ├── scripts/                # 后端 Nginx 配置与 SSL
+│   ├── data/                   # 后端数据目录
+│   ├── package.json           # 后端依赖配置
+│   └── Dockerfile             # 后端 Docker 镜像
+├── docs/                       # 项目文档
+├── screenshots/                # 预览截图
+├── scripts/                    # 统用工具脚本 (run.sh 依赖)
+│   ├── nginx-utils.sh         # Nginx 处理工具
+│   └── ssh-utils.sh           # SSH 连接工具
+├── run.sh                      # 唯一管理脚本 (v2.1+)
+└── README.md                   # 项目说明
 ```
 
 ## 架构设计
 
 ### 模块说明
 
-#### 核心模块
+本项目采用前后端分离架构，统一由根目录的 `run.sh` 进行管理。
 
-- **config.js** - 配置常量和数据配置（主题、字体、颜色等）
-- **utils.js** - 工具函数集合（防抖、节流、日期格式化等）
-- **state.js** - 应用状态管理（AppState 类）
-- **dom-manager.js** - DOM元素管理和访问（使用 Proxy 实现按需加载）
+#### 前端 (app)
+- **核心逻辑**：基于 ES6 模块，使用 `PreviewProcessor` 统一处理各种场景的预览
+- **状态管理**：使用 `AppState` 进行全局状态管理
+- **性能优化**：通过 `DOMManager` Proxy 机制实现 DOM 按需加载
 
-#### 功能模块
+#### 后端 (server)
+- **核心框架**：Express.js
+- **部署方式**：支持 PM2 和 Docker 两种部署方式
+- **功能说明**：提供动态配置加载和持久化存储
 
-- **renderer.js** - UI渲染器（主题、字体、颜色等样式更新）
-- **preview-manager.js** - 预览内容更新和管理
-- **preview-processor.js** - 统一预览处理器（确保缩略图、移动预览、导出使用相同逻辑）
-- **thumbnail-manager.js** - 缩略图管理和更新（移动端缩略图状态管理）
-- **mobile-preview-manager.js** - 移动端预览交互管理（全屏预览动画）
-- **download-manager.js** - 图片下载功能（使用 html2canvas 导出）
+### 管理脚本 (run.sh)
 
-#### 应用模块
+`run.sh` 是本项目的统一管理入口，支持以下功能：
+- 前端部署（Docker）
+- 后端部署（PM2/Docker）
+- Nginx 配置更新
+- 数据备份与同步
 
-- **app.js** - 主应用类，整合所有模块
-- **index.js** - 应用入口，初始化应用
-
-### 依赖关系
-
+使用方法：
+```bash
+./run.sh [module] [command]
 ```
-config.js (无依赖)
-    ↓
-utils.js → config.js
-state.js (无依赖)
-dom-manager.js (无依赖)
-    ↓
-renderer.js → dom-manager.js, state.js, config.js
-preview-manager.js → dom-manager.js, state.js, config.js
-preview-processor.js → state.js, config.js
-thumbnail-manager.js → dom-manager.js, state.js, config.js, utils.js
-download-manager.js → dom-manager.js, state.js, preview-processor.js, preview-manager.js, config.js, utils.js
-mobile-preview-manager.js → dom-manager.js, config.js, utils.js
-    ↓
-app.js → 所有上述模块
-    ↓
-index.js → app.js
-```
+详情请运行 `./run.sh help` 查看。
 
 ### 核心设计原则
 
@@ -488,85 +479,44 @@ import { Utils } from "./utils"; // ❌
 
 ### 统一管理脚本
 
-项目使用统一的 `book-excerpt.sh` 脚本管理所有部署和管理操作：
+项目使用根目录下的 `run.sh` 脚本管理所有部署和管理操作：
 
 ```bash
-cd scripts
-chmod +x book-excerpt.sh
-./book-excerpt.sh [command] [options]
+chmod +x run.sh
+./run.sh [module] [command] [options]
 ```
 
-### 可用命令
+### 常用命令示例
 
-- `deploy` - 部署前端应用到服务器
-- `update-nginx` - 更新 Nginx 配置文件（包含 SSL 证书上传）
-- `start-nginx` - 启动 Nginx 服务
-- `fix-port` - 修复端口占用问题
-- `check` - 检查部署状态和配置
+- `app docker-deploy` - 部署前端应用到服务器
+- `app update-nginx` - 更新前端 Nginx 配置文件
+- `server deploy` - 使用 PM2 部署后端服务
+- `server status` - 检查后端状态
 - `help` - 显示帮助信息
 
-### 快速部署
+### 快速部署前端
 
 ```bash
-cd scripts
-./book-excerpt.sh deploy
+./run.sh app docker-deploy
 ```
 
 ### 部署说明
 
 详细的部署指南请参考 [docs/DEPLOY.md](./docs/DEPLOY.md)
 
-**⚠️ 部署后使改动生效**: 部署完成后，由于浏览器缓存，可能需要强制刷新浏览器（`Ctrl+Shift+R` 或 `Cmd+Shift+R`）才能看到最新改动。详细说明请参考 [缓存管理指南](./docs/CACHE_MANAGEMENT.md)。
+**⚠️ 部署后使改动生效**: 部署完成后，由于浏览器缓存，可能需要强制刷新浏览器（`Ctrl+Shift+R` 或 `Cmd+Shift+R`）才能看到最新改动。
 
 **部署信息**:
 
 - 服务器地址: 8.138.183.116
-- 部署目录: `/var/www/html/book-excerpt-generator`
-- 访问地址: `http://8.138.183.116` 或 `https://8.138.183.116`
+- 前端部署目录: `/var/www/html/book-excerpt-generator`
+- 访问地址: `https://book-excerpt.zhifu.tech`
 
 ### 检查部署状态
 
 ```bash
-cd scripts
-./book-excerpt.sh check
-```
-
-### 更新 Nginx 配置
-
-```bash
-cd scripts
-./book-excerpt.sh update-nginx
-```
-
-脚本会自动将 `scripts/nginx.conf` 和 SSL 证书上传到服务器并重新加载 Nginx。
-
-### 启动 Nginx
-
-如果 Nginx 未运行，可以使用启动命令：
-
-```bash
-cd scripts
-./book-excerpt.sh start-nginx
-```
-
-脚本会自动检查配置、端口占用情况，启动 Nginx 并设置开机自启。
-
-### 修复端口占用问题
-
-如果 Nginx 启动失败，提示端口被占用，可以使用修复命令：
-
-```bash
-cd scripts
-./book-excerpt.sh fix-port [端口号]
-```
-
-脚本会自动检查端口占用情况，并提供解决方案。默认检查 80 和 443 端口。
-
-### 查看帮助
-
-```bash
-cd scripts
-./book-excerpt.sh help
+./run.sh app check
+./run.sh server status
 ```
 
 ## 许可证

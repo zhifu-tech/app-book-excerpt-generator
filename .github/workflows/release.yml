@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    name: Create Release
+    name: Create Unified Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,14 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run linter
-        run: npm run lint
 
       - name: Extract version from tag
         id: tag_version
@@ -40,19 +32,38 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Tag: $TAG_NAME, Version: $VERSION"
 
-      - name: Generate release notes
+      - name: Generate release notes from CHANGELOG
         id: changelog
         run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          TAG_MESSAGE=$(git tag -l --format='%(contents)' "$TAG_NAME" 2>/dev/null || echo "版本 $TAG_NAME 发布")
-          if [ -z "$TAG_MESSAGE" ]; then
-            TAG_MESSAGE="版本 $TAG_NAME 发布"
+          VERSION=${{ steps.tag_version.outputs.version }}
+          TAG_NAME=${{ steps.tag_version.outputs.tag_name }}
+
+          # 从 root docs/CHANGELOG.md 提取对应版本的更新内容
+          if [ -f "docs/CHANGELOG.md" ]; then
+            # 使用 sed 提取版本内容
+            CHANGELOG_CONTENT=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" docs/CHANGELOG.md | sed '$d' | sed '1d')
+            
+            if [ -z "$CHANGELOG_CONTENT" ]; then
+              CHANGELOG_CONTENT=$(git tag -l --format='%(contents)' "$TAG_NAME" 2>/dev/null || echo "")
+            fi
+            
+            if [ -z "$CHANGELOG_CONTENT" ]; then
+              CHANGELOG_CONTENT="查看 [CHANGELOG.md](docs/CHANGELOG.md) 了解详细更新内容。"
+            fi
+            
+            {
+              echo "changelog<<EOF"
+              echo "$CHANGELOG_CONTENT"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          else
+            TAG_MESSAGE=$(git tag -l --format='%(contents)' "$TAG_NAME" 2>/dev/null || echo "版本 $VERSION 发布")
+            {
+              echo "changelog<<EOF"
+              echo "$TAG_MESSAGE"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           fi
-          {
-            echo "changelog<<EOF"
-            echo "$TAG_MESSAGE"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -65,27 +76,14 @@ jobs:
 
             ---
 
-            **📦 安装方式**:
-            ```bash
-            npm install
-            ```
-
-            **🚀 本地开发**:
-            ```bash
-            # 使用 Python
-            python -m http.server 8000
-            
-            # 或使用 Node.js
-            npx serve .
-            ```
+            **🚀 管理与部署**:
+            使用根目录的 `run.sh` 脚本进行一键管理。
 
             **📚 文档**:
-            - [README.md](README.md) - 使用说明
+            - [README.md](README.md) - 项目总览
             - [部署指南](docs/DEPLOY.md) - 服务器部署
+            - [Docker 指南](docs/DOCKER.md) - 容器化部署
+            - [完整更新日志](docs/CHANGELOG.md) - 版本历史
           draft: false
           prerelease: ${{ contains(steps.tag_version.outputs.version, '-') || contains(steps.tag_version.outputs.version, 'alpha') || contains(steps.tag_version.outputs.version, 'beta') || contains(steps.tag_version.outputs.version, 'rc') }}
-          files: |
-            package.json
-            package-lock.json
           token: ${{ secrets.GITHUB_TOKEN }}
-

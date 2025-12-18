@@ -11,8 +11,6 @@ WORKDIR /usr/share/nginx/html
 # 复制静态文件
 COPY index.html style.css ./
 COPY js/ ./js/
-# 复制截图目录
-COPY screenshots/ ./screenshots/
 
 # 创建简化的 Nginx 配置（用于生产环境）
 RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
