@@ -398,6 +398,28 @@
                   </label>
                 </div>
               </div>
+              <div class="control-group">
+                <div class="control-label">配置管理</div>
+                <div class="config-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                  <button type="button" class="secondary-btn export-config-btn" id="export-config-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    导出配置
+                  </button>
+                  <button type="button" class="secondary-btn import-btn" id="import-config-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; transition: all 0.2s;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    导入配置
+                  </button>
+                </div>
+                <input type="file" id="config-file-input" accept=".json" style="display: none;" />
+              </div>
             </div>
           </div>
         </div>

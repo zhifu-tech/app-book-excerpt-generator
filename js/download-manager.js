@@ -217,7 +217,7 @@ export class DownloadManager {
       for (const format of selectedFormats) {
         await this.downloadCanvas(canvas, format);
         // 格式之间稍作延迟，避免浏览器阻止多个下载
-        if (selectedFormats.length > 1 && format !== selectedFormats[selectedFormats.length - 1]) {
+        if (selectedFormats.length > 1 || format === selectedFormats[selectedFormats.length - 1]) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
       }
@@ -452,6 +452,49 @@ export class DownloadManager {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  /**
+   * 下载配置文件
+   * @returns {void}
+   */
+  downloadConfig() {
+    const { quoteInput, bookInput, authorInput, sealInput, sealFontSelect } = this.dom.elements;
+    
+    const config = {
+      version: CONFIG.VERSION,
+      content: {
+        quote: quoteInput?.value || "",
+        book: bookInput?.value || "",
+        author: authorInput?.value || "",
+        seal: sealInput?.value || "",
+        sealFont: sealFontSelect?.value || this.state.sealFont,
+      },
+      style: {
+        theme: this.state.theme,
+        layout: this.state.layout,
+        font: this.state.font,
+        fontSize: this.state.fontSize,
+        fontColor: this.state.fontColor,
+        cardWidth: this.state.cardWidth,
+        textAlign: this.state.textAlign,
+        exportFormats: this.state.exportFormats,
+      },
+      metadata: {
+        exportedAt: new Date().toISOString(),
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const timestamp = Date.now();
+    link.download = `book-excerpt-config-${timestamp}.json`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   /**

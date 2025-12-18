@@ -36,6 +36,7 @@ const SELECTORS = {
   layoutRadios: () => document.querySelectorAll('input[name="layout"]'),
   exportFormatCheckboxes: () => document.querySelectorAll('input[name="export-format"]'),
   downloadBtn: () => document.getElementById("download-btn"),
+  exportConfigBtn: () => document.getElementById("export-config-btn"),
 
   // 预览元素
   card: () => document.getElementById("card-preview"),

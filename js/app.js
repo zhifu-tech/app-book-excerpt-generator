@@ -9,6 +9,7 @@ import { PreviewManager } from "./preview-manager.js";
 import { ThumbnailManager } from "./thumbnail-manager.js";
 import { DownloadManager } from "./download-manager.js";
 import { MobilePreviewManager } from "./mobile-preview-manager.js";
+import { ImportManager } from "./import-manager.js";
 import { CacheManager } from "./cache-manager.js";
 import { CONFIG, initConfig } from "./config.js";
 import { Utils } from "./utils.js";
@@ -36,6 +37,8 @@ export class BookExcerptApp {
     this.download = null;
     /** @type {MobilePreviewManager} 移动端预览管理器 */
     this.mobilePreview = new MobilePreviewManager(this.dom, this.thumbnail, this.state);
+    /** @type {ImportManager | null} 导入管理器 */
+    this.import = null;
     /** @type {CacheManager} 缓存管理器 */
     this.cache = new CacheManager();
   }
@@ -120,6 +123,9 @@ export class BookExcerptApp {
 
     // 初始化下载管理器（需要previewManager引用）
     this.download = new DownloadManager(this.dom, this.state, this.preview);
+
+    // 初始化导入管理器
+    this.import = new ImportManager(this.dom, this.state, this.preview, this.thumbnail);
 
     // 初始化滚动监听
     this.initScrollListener();
@@ -506,6 +512,11 @@ export class BookExcerptApp {
     // 下载按钮
     downloadBtn?.addEventListener("click", () => {
       this.download.download();
+    });
+
+    // 导出配置按钮
+    this.dom.exportConfigBtn?.addEventListener("click", () => {
+      this.download.downloadConfig();
     });
   }
 
