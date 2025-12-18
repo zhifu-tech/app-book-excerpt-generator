@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * 日志管理工具
  * 提供统一的日志输出接口，支持不同环境下的日志级别控制
@@ -49,11 +50,11 @@ export class Logger {
   /**
    * 格式化日志消息
    * @param {string} level - 日志级别
-   * @param {any[]} args - 日志参数
+   * @param {any[]} _args - 日志参数
    * @returns {string} 格式化后的消息
    * @private
    */
-  _formatMessage(level, args) {
+  _formatMessage(level, _args) {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${this.context}] [${level.toUpperCase()}]`;
     return `${prefix}`;

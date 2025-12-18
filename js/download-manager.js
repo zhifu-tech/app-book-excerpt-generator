@@ -112,11 +112,11 @@ export class DownloadManager {
 
       // 克隆卡片到临时容器
       clonedCardForCapture = card.cloneNode(true);
-      
+
       // 获取卡片的原始圆角样式
       const cardComputedStyle = window.getComputedStyle(card);
       const cardBorderRadius = cardComputedStyle.borderRadius || "16px"; // var(--radius-xl) 默认值
-      
+
       clonedCardForCapture.style.cssText = `
         position: relative !important;
         margin: 0 !important;
@@ -135,17 +135,9 @@ export class DownloadManager {
 
       // 应用卡片背景
       if (currentTheme?.background) {
-        clonedCardForCapture.style.setProperty(
-          "background",
-          currentTheme.background,
-          "important"
-        );
+        clonedCardForCapture.style.setProperty("background", currentTheme.background, "important");
       } else if (currentTheme?.color) {
-        clonedCardForCapture.style.setProperty(
-          "background-color",
-          currentTheme.color,
-          "important"
-        );
+        clonedCardForCapture.style.setProperty("background-color", currentTheme.color, "important");
       } else if (
         cardBackground?.backgroundColor &&
         cardBackground.backgroundColor !== "transparent"
@@ -460,7 +452,7 @@ export class DownloadManager {
    */
   downloadConfig() {
     const { quoteInput, bookInput, authorInput, sealInput, sealFontSelect } = this.dom.elements;
-    
+
     const config = {
       version: CONFIG.VERSION,
       content: {
@@ -482,7 +474,7 @@ export class DownloadManager {
       },
       metadata: {
         exportedAt: new Date().toISOString(),
-      }
+      },
     };
 
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });

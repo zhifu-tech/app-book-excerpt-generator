@@ -334,7 +334,8 @@ export class BookExcerptApp {
         return;
     }
 
-    const newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end);
+    const newText =
+      text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end);
     textarea.value = newText;
 
     // 重新设置光标位置

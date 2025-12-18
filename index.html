@@ -61,19 +61,54 @@
                   <button type="button" class="tab-btn" data-tab="preview">预览</button>
                 </div>
                 <div class="text-tools">
-                  <button type="button" class="tool-btn" data-command="bold" title="加粗"><b>B</b></button>
-                  <button type="button" class="tool-btn" data-command="italic" title="斜体"><i>I</i></button>
-                  <button type="button" class="tool-btn" data-command="subscript" title="下标">X<sub>2</sub></button>
-                  <button type="button" class="tool-btn" data-command="superscript" title="上标">X<sup>2</sup></button>
+                  <button type="button" class="tool-btn" data-command="bold" title="加粗">
+                    <b>B</b>
+                  </button>
+                  <button type="button" class="tool-btn" data-command="italic" title="斜体">
+                    <i>I</i>
+                  </button>
+                  <button type="button" class="tool-btn" data-command="subscript" title="下标">
+                    X<sub>2</sub>
+                  </button>
+                  <button type="button" class="tool-btn" data-command="superscript" title="上标">
+                    X<sup>2</sup>
+                  </button>
                   <div class="tool-divider"></div>
                   <button type="button" class="tool-btn" data-align="left" title="左对齐">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 10H3M21 6H3M21 14H3M17 18H3"/></svg>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M17 10H3M21 6H3M21 14H3M17 18H3" />
+                    </svg>
                   </button>
                   <button type="button" class="tool-btn" data-align="center" title="居中对齐">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10H6M21 6H3M21 14H3M18 18H6"/></svg>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M18 10H6M21 6H3M21 14H3M18 18H6" />
+                    </svg>
                   </button>
                   <button type="button" class="tool-btn" data-align="right" title="右对齐">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10H7M21 6H3M21 14H3M21 18H7"/></svg>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M21 10H7M21 6H3M21 14H3M21 18H7" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -84,7 +119,9 @@
                   placeholder="在这里输入你喜欢的文字..."
                   rows="5"
                   aria-label="摘录内容输入框"
-                >生活不可能像你想象得那么好，但也不会像你想象得那么糟。</textarea>
+                >
+生活不可能像你想象得那么好，但也不会像你想象得那么糟。</textarea
+                >
                 <div id="quote-preview" class="quote-preview hidden"></div>
               </div>
             </div>
@@ -93,12 +130,9 @@
           <div class="control-row">
             <div class="control-group half">
               <label for="book-title">书名/出处</label>
-              <textarea
-                id="book-title"
-                name="book-title"
-                rows="2"
-                aria-label="书名或出处"
-              >羊脂球</textarea>
+              <textarea id="book-title" name="book-title" rows="2" aria-label="书名或出处">
+羊脂球</textarea
+              >
             </div>
             <div class="control-group half">
               <label for="author-text">作者</label>
@@ -400,17 +434,70 @@
               </div>
               <div class="control-group">
                 <div class="control-label">配置管理</div>
-                <div class="config-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                  <button type="button" class="secondary-btn export-config-btn" id="export-config-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; transition: all 0.2s;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <div
+                  class="config-actions"
+                  style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"
+                >
+                  <button
+                    type="button"
+                    class="secondary-btn export-config-btn"
+                    id="export-config-btn"
+                    style="
+                      width: 100%;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                      padding: 10px;
+                      background: var(--bg-secondary);
+                      border: 1px solid var(--border-color);
+                      border-radius: var(--radius-md);
+                      cursor: pointer;
+                      font-size: 14px;
+                      transition: all 0.2s;
+                    "
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                       <polyline points="7 10 12 15 17 10"></polyline>
                       <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
                     导出配置
                   </button>
-                  <button type="button" class="secondary-btn import-btn" id="import-config-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; transition: all 0.2s;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <button
+                    type="button"
+                    class="secondary-btn import-btn"
+                    id="import-config-btn"
+                    style="
+                      width: 100%;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                      padding: 10px;
+                      background: var(--bg-secondary);
+                      border: 1px solid var(--border-color);
+                      border-radius: var(--radius-md);
+                      cursor: pointer;
+                      font-size: 14px;
+                      transition: all 0.2s;
+                    "
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                       <polyline points="17 8 12 3 7 8"></polyline>
                       <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -418,7 +505,7 @@
                     导入配置
                   </button>
                 </div>
-                <input type="file" id="config-file-input" accept=".json" style="display: none;" />
+                <input type="file" id="config-file-input" accept=".json" style="display: none" />
               </div>
             </div>
           </div>

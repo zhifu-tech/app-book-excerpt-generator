@@ -26,7 +26,7 @@ export class ImportManager {
     this.previewManager = previewManager;
     /** @type {ThumbnailManager} */
     this.thumbnailManager = thumbnailManager;
-    
+
     this.init();
   }
 
@@ -55,7 +55,7 @@ export class ImportManager {
 
   /**
    * 导入文件并解析
-   * @param {File} file 
+   * @param {File} file
    */
   async importFile(file) {
     try {
@@ -68,7 +68,11 @@ export class ImportManager {
 
       // 版本校验
       if (!this.checkVersion(config.version)) {
-        if (!confirm(`配置文件版本 (${config.version}) 与当前版本 (${APP_CONFIG.VERSION}) 可能不兼容，是否继续？`)) {
+        if (
+          !confirm(
+            `配置文件版本 (${config.version}) 与当前版本 (${APP_CONFIG.VERSION}) 可能不兼容，是否继续？`
+          )
+        ) {
           return;
         }
       }
@@ -84,7 +88,7 @@ export class ImportManager {
 
   /**
    * 校验配置格式
-   * @param {any} config 
+   * @param {any} config
    * @returns {boolean}
    */
   validateConfig(config) {
@@ -93,7 +97,7 @@ export class ImportManager {
 
   /**
    * 版本校验
-   * @param {string} version 
+   * @param {string} version
    * @returns {boolean}
    */
   checkVersion(version) {
@@ -106,7 +110,7 @@ export class ImportManager {
 
   /**
    * 应用配置到应用
-   * @param {any} config 
+   * @param {any} config
    */
   applyConfig(config) {
     const { content, style } = config;
@@ -137,7 +141,7 @@ export class ImportManager {
     // 3. 更新 UI 显示和预览
     this.previewManager.updatePreview();
     this.previewManager.updateSeal();
-    
+
     if (style.theme) this.previewManager.setTheme(style.theme);
     if (style.font) this.previewManager.setFont(style.font);
     if (style.fontSize) this.previewManager.setFontSize(style.fontSize);
@@ -160,7 +164,7 @@ export class ImportManager {
     // 更新布局 radio
     const layoutRadios = this.dom.layoutRadios;
     if (layoutRadios) {
-      layoutRadios.forEach(radio => {
+      layoutRadios.forEach((radio) => {
         radio.checked = radio.value === this.state.layout;
       });
     }
@@ -168,7 +172,7 @@ export class ImportManager {
     // 更新导出格式 checkboxes
     const checkboxes = this.dom.exportFormatCheckboxes;
     if (checkboxes) {
-      checkboxes.forEach(cb => {
+      checkboxes.forEach((cb) => {
         cb.checked = this.state.exportFormats.includes(cb.value);
       });
     }
@@ -196,4 +200,3 @@ export class ImportManager {
     }
   }
 }
-

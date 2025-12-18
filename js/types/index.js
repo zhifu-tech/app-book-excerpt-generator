@@ -66,4 +66,3 @@ export {};
  * @property {Font[]} fonts - 字体列表
  * @property {FontColor[]} fontColors - 字体颜色列表
  */
-
