@@ -253,7 +253,12 @@ server_deploy_pm2() {
     ssh_exec << ENDSSH
 cd $SERVER_REMOTE_DIR
 npm install --production
+# 停止可能存在的 Docker 容器（释放端口）
+docker stop $SERVER_DOCKER_CONTAINER 2>/dev/null || true
+docker rm $SERVER_DOCKER_CONTAINER 2>/dev/null || true
+# 启动 PM2
 pm2 delete $SERVER_DOCKER_CONTAINER 2>/dev/null || true
+pm2 delete book-excerpt-server 2>/dev/null || true
 pm2 start ecosystem.config.cjs
 pm2 save
 ENDSSH
@@ -274,8 +279,15 @@ server_docker_deploy() {
     
     ssh_exec << ENDSSH
 docker load < /tmp/server.tar.gz
+# 停止可能存在的 Docker 容器
 docker stop $SERVER_DOCKER_CONTAINER 2>/dev/null || true
 docker rm $SERVER_DOCKER_CONTAINER 2>/dev/null || true
+# 停止可能存在的 PM2 进程（释放端口）
+pm2 stop $SERVER_DOCKER_CONTAINER 2>/dev/null || true
+pm2 stop book-excerpt-server 2>/dev/null || true
+pm2 delete $SERVER_DOCKER_CONTAINER 2>/dev/null || true
+pm2 delete book-excerpt-server 2>/dev/null || true
+# 运行容器
 docker run -d --name $SERVER_DOCKER_CONTAINER --restart unless-stopped -p 127.0.0.1:3001:3001 $SERVER_DOCKER_IMAGE:latest
 rm -f /tmp/server.tar.gz
 ENDSSH

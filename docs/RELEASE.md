@@ -24,7 +24,7 @@
 
 ```bash
 git add .
-git commit -m "chore: bump version to 0.2.0"
+git commit -m "chore: bump version to 0.3.0"
 git push origin main
 ```
 
@@ -32,13 +32,13 @@ git push origin main
 
 ```bash
 # 创建带注释的标签
-git tag -a v0.2.0 -m "版本 0.2.0 - 描述信息"
+git tag -a v0.3.0 -m "版本 0.3.0 - 描述信息"
 
 # 或者使用 CHANGELOG 中的内容
-git tag -a v0.2.0 -F docs/CHANGELOG.md
+git tag -a v0.3.0 -F docs/CHANGELOG.md
 
 # 推送标签到远程
-git push origin v0.2.0
+git push origin v0.3.0
 ```
 
 ### 4. 自动触发发布
@@ -63,17 +63,17 @@ git push origin v0.2.0
 
 示例：
 
-- `v0.2.0` - 新功能版本
-- `v0.2.1` - 修复版本
+- `v0.3.0` - 新功能版本
+- `v0.3.1` - 修复版本
 - `v1.0.0` - 正式版本
 
 ## 预发布版本
 
 支持预发布版本标签：
 
-- `v0.2.0-alpha.1` - Alpha 版本
-- `v0.2.0-beta.1` - Beta 版本
-- `v0.2.0-rc.1` - 候选版本
+- `v0.3.0-alpha.1` - Alpha 版本
+- `v0.3.0-beta.1` - Beta 版本
+- `v0.3.0-rc.1` - 候选版本
 
 预发布版本会自动标记为 GitHub Release 的 "Pre-release"。
 
@@ -134,23 +134,23 @@ git push origin v0.2.0
 
 ## 示例
 
-### 发布 v0.2.0
+### 发布 v0.3.0
 
 ```bash
 # 1. 更新版本号
-# 编辑 package.json: "version": "0.2.0"
-# 编辑 docs/CHANGELOG.md: 添加 [0.2.0] 部分
+# 编辑 package.json: "version": "0.3.0"
+# 编辑 docs/CHANGELOG.md: 添加 [0.3.0] 部分
 
 # 2. 提交更改
 git add package.json docs/CHANGELOG.md
-git commit -m "chore: bump version to 0.2.0"
+git commit -m "chore: bump version to 0.3.0"
 git push origin main
 
 # 3. 创建标签
-git tag -a v0.2.0 -m "版本 0.2.0 - 架构重构与工程化优化"
+git tag -a v0.3.0 -m "版本 0.3.0 - 架构重构与工程化优化"
 
 # 4. 推送标签（触发自动发布）
-git push origin v0.2.0
+git push origin v0.3.0
 ```
 
 推送标签后，GitHub Actions 会自动创建 Release。
