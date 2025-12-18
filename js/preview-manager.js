@@ -16,9 +16,30 @@ export class PreviewManager {
 
     previewText.style.opacity = "0.5";
     requestAnimationFrame(() => {
-      previewText.textContent = quoteInput?.value || "请输入摘录内容...";
-      previewBook.textContent = bookInput?.value || "书名";
-      previewAuthor.textContent = authorInput?.value || "作者";
+      // 使用 innerHTML 以支持加粗、斜体等样式
+      const rawText = quoteInput?.value || "请输入摘录内容...";
+      // 简单的换行转 <br> 处理，如果用户没有手动输入 HTML
+      const htmlText = rawText.replace(/\n/g, "<br>");
+      previewText.innerHTML = htmlText;
+
+      // 书名和作者也支持换行
+      const bookText = bookInput?.value || "";
+      const authorText = authorInput?.value || "";
+
+      // 处理作者和书名区域的隐藏
+      const bookInfo = previewBook.closest(".book-info");
+      if (bookInfo) {
+        if (!bookText.trim() && !authorText.trim()) {
+          bookInfo.style.display = "none";
+        } else {
+          bookInfo.style.display = "flex";
+          previewBook.innerHTML = bookText.replace(/\n/g, "<br>") || "书名";
+          previewAuthor.innerHTML = authorText.replace(/\n/g, "<br>") || "作者";
+          // 如果单个字段为空，隐藏该 span 避免留白
+          previewBook.style.display = bookText.trim() ? "block" : "none";
+          previewAuthor.style.display = authorText.trim() ? "block" : "none";
+        }
+      }
 
       if (this.state.font) {
         previewText.style.fontFamily = this.state.font;
@@ -26,6 +47,10 @@ export class PreviewManager {
       if (this.state.fontSize) {
         previewText.style.fontSize = `${this.state.fontSize}px`;
       }
+      if (this.state.textAlign) {
+        previewText.style.textAlign = this.state.textAlign;
+      }
+
       requestAnimationFrame(() => {
         previewText.style.opacity = "1";
       });
@@ -35,9 +60,21 @@ export class PreviewManager {
   updateSeal() {
     const seal = this.dom.previewSeal;
     const input = this.dom.sealInput;
+    const sealBox = seal?.closest(".seal-box");
     if (!seal || !input) return;
 
-    const text = input.value || "印章";
+    const text = input.value;
+
+    // 如果落款为空，隐藏印章
+    if (!text || text.trim() === "") {
+      if (sealBox) sealBox.style.display = "none";
+      seal.style.display = "none";
+      return;
+    }
+
+    if (sealBox) sealBox.style.display = "flex";
+    seal.style.display = "flex";
+
     const len = text.length;
 
     seal.style.writingMode = "horizontal-tb";
@@ -47,6 +84,9 @@ export class PreviewManager {
     seal.style.justifyContent = "center";
     seal.style.textAlign = "center";
     seal.style.margin = "0 auto";
+    if (this.state.sealFont) {
+      seal.style.fontFamily = this.state.sealFont;
+    }
 
     if (len === 1) {
       seal.innerHTML = `<span style="font-size: 28px;display:block;">${text}</span>`;
@@ -185,5 +225,23 @@ export class PreviewManager {
     this.state.update({ zoom });
     card.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
     card.style.transform = `scale(${zoom})`;
+  }
+
+  setSealFont(font) {
+    this.state.update({ sealFont: font });
+    this.updateSeal();
+  }
+
+  setTextAlign(align) {
+    const previewText = this.dom.previewText;
+    if (!previewText) return;
+
+    this.state.update({ textAlign: align });
+    previewText.style.textAlign = align;
+
+    // 更新按钮状态
+    document.querySelectorAll(".tool-btn[data-align]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.align === align);
+    });
   }
 }

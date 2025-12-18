@@ -20,6 +20,10 @@ const SELECTORS = {
   bookInput: () => document.getElementById("book-title"),
   authorInput: () => document.getElementById("author-text"),
   sealInput: () => document.getElementById("seal-text"),
+  sealFontSelect: () => document.getElementById("seal-font"),
+  toolBtns: () => document.querySelectorAll(".tool-btn"),
+  tabBtns: () => document.querySelectorAll(".tab-btn"),
+  quotePreview: () => document.getElementById("quote-preview"),
 
   // 控制元素
   themeGrid: () => document.getElementById("theme-grid"),

@@ -87,6 +87,9 @@ export class BookExcerptApp {
     this.renderer.renderFontGrid();
     this.renderer.renderSizeOptions();
 
+    // 初始化对齐方式选中状态
+    this.initTextAlign();
+
     // 初始化导出格式选中状态
     this.initExportFormats();
 
@@ -95,6 +98,9 @@ export class BookExcerptApp {
 
     // 初始化预览（如果从缓存加载了内容，预览会自动使用缓存的值）
     this.preview.updatePreview();
+    if (this.state.textAlign) {
+      this.preview.setTextAlign(this.state.textAlign);
+    }
     this.preview.updateSeal();
 
     // 立即初始化缩略图位置（避免闪现）
@@ -120,6 +126,9 @@ export class BookExcerptApp {
 
     // 绑定浮动操作按钮
     this.bindFloatingActions();
+
+    // 绑定标签切换事件
+    this.bindTabEvents();
   }
 
   /**
@@ -245,6 +254,123 @@ export class BookExcerptApp {
   }
 
   /**
+   * 初始化文本对齐方式
+   * @private
+   */
+  initTextAlign() {
+    if (this.state.textAlign) {
+      document.querySelectorAll(".tool-btn[data-align]").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.align === this.state.textAlign);
+      });
+    }
+  }
+
+  /**
+   * 绑定文本工具栏事件
+   * @private
+   */
+  bindTextToolEvents() {
+    const { quoteInput } = this.dom.elements;
+    const toolBtns = this.dom.toolBtns;
+
+    if (!quoteInput || !toolBtns) return;
+
+    toolBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const command = btn.dataset.command;
+        const align = btn.dataset.align;
+
+        if (command) {
+          this.insertTag(quoteInput, command);
+          // 如果预览页可见，更新预览内容
+          if (!quotePreview.classList.contains("hidden")) {
+            quotePreview.innerHTML = quoteInput.value.replace(/\n/g, "<br>");
+          }
+        } else if (align) {
+          this.preview.setTextAlign(align);
+          this.thumbnail.updateThumbnail();
+          this.saveSidebarContentToCache();
+        }
+      });
+    });
+  }
+
+  /**
+   * 在光标处插入标签
+   * @param {HTMLTextAreaElement} textarea
+   * @param {string} command
+   */
+  insertTag(textarea, command) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+
+    let tagOpen, tagClose;
+    switch (command) {
+      case "bold":
+        tagOpen = "<b>";
+        tagClose = "</b>";
+        break;
+      case "italic":
+        tagOpen = "<i>";
+        tagClose = "</i>";
+        break;
+      case "subscript":
+        tagOpen = "<sub>";
+        tagClose = "</sub>";
+        break;
+      case "superscript":
+        tagOpen = "<sup>";
+        tagClose = "</sup>";
+        break;
+      default:
+        return;
+    }
+
+    const newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end);
+    textarea.value = newText;
+
+    // 重新设置光标位置
+    textarea.focus();
+    const newCursorPos = start + tagOpen.length + selectedText.length + tagClose.length;
+    textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+    // 触发 input 事件以更新预览
+    textarea.dispatchEvent(new Event("input"));
+  }
+
+  /**
+   * 绑定标签切换事件
+   * @private
+   */
+  bindTabEvents() {
+    const { tabBtns, quoteInput, quotePreview } = this.dom.elements;
+    if (!tabBtns || !quoteInput || !quotePreview) return;
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+
+        // 更新按钮状态
+        tabBtns.forEach((b) => b.classList.toggle("active", b === btn));
+
+        // 切换内容显示
+        if (tab === "write") {
+          quoteInput.classList.remove("hidden");
+          quotePreview.classList.add("hidden");
+        } else {
+          quoteInput.classList.add("hidden");
+          quotePreview.classList.remove("hidden");
+          // 更新预览内容
+          const rawText = quoteInput.value || "无内容";
+          quotePreview.innerHTML = rawText.replace(/\n/g, "<br>");
+        }
+      });
+    });
+  }
+
+  /**
    * 绑定浮动操作按钮事件
    * @private
    */
@@ -271,7 +397,7 @@ export class BookExcerptApp {
     }
 
     const cachedContent = this.cache.loadSidebarContent();
-    const { quoteInput, bookInput, authorInput, sealInput } = this.dom.elements;
+    const { quoteInput, bookInput, authorInput, sealInput, sealFontSelect } = this.dom.elements;
 
     // 从缓存加载内容（优先使用缓存，即使为空字符串也使用）
     if (quoteInput && cachedContent.quote !== undefined) {
@@ -286,6 +412,13 @@ export class BookExcerptApp {
     if (sealInput && cachedContent.seal !== undefined) {
       sealInput.value = cachedContent.seal;
     }
+    if (sealFontSelect && cachedContent.sealFont !== undefined) {
+      sealFontSelect.value = cachedContent.sealFont;
+      this.state.update({ sealFont: cachedContent.sealFont });
+    }
+    if (cachedContent.textAlign !== undefined) {
+      this.state.update({ textAlign: cachedContent.textAlign });
+    }
 
     return true;
   }
@@ -295,13 +428,15 @@ export class BookExcerptApp {
    * @private
    */
   saveSidebarContentToCache() {
-    const { quoteInput, bookInput, authorInput, sealInput } = this.dom.elements;
+    const { quoteInput, bookInput, authorInput, sealInput, sealFontSelect } = this.dom.elements;
 
     this.cache.saveSidebarContent({
       quote: quoteInput?.value || "",
       book: bookInput?.value || "",
       author: authorInput?.value || "",
       seal: sealInput?.value || "",
+      sealFont: sealFontSelect?.value || this.state.sealFont,
+      textAlign: this.state.textAlign,
     });
   }
 
@@ -310,7 +445,8 @@ export class BookExcerptApp {
    * @private
    */
   bindEvents() {
-    const { quoteInput, bookInput, authorInput, sealInput, downloadBtn } = this.dom.elements;
+    const { quoteInput, bookInput, authorInput, sealInput, sealFontSelect, downloadBtn } =
+      this.dom.elements;
 
     const updatePreviewAndThumbnail = () => {
       this.preview.updatePreview();
@@ -329,6 +465,15 @@ export class BookExcerptApp {
       // 保存到缓存
       this.saveSidebarContentToCache();
     });
+
+    sealFontSelect?.addEventListener("change", (e) => {
+      this.preview.setSealFont(e.target.value);
+      this.thumbnail.updateThumbnail();
+      this.saveSidebarContentToCache();
+    });
+
+    // 绑定文本工具栏事件
+    this.bindTextToolEvents();
 
     // 布局切换
     // 布局单选框事件

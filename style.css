@@ -356,13 +356,181 @@ label {
 
 /* Control label for non-form elements (like card-width-options) */
 .control-label {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 13px; /* 优化：从 12px 改为 13px */
   font-weight: 500;
   color: var(--text-color); /* 优化：从 secondary 改为 primary */
   margin-bottom: var(--spacing-sm);
   letter-spacing: -0.01em; /* 优化：添加轻微字距调整 */
   line-height: 1.5;
+}
+
+/* 文本工具栏样式 */
+.editor-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #fff;
+}
+
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-triggers {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: var(--text-color);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn.active {
+  color: var(--text-color);
+  background: #fff;
+  border-color: var(--border-color);
+  border-bottom-color: transparent;
+  margin-bottom: -9px;
+  padding-bottom: 8px;
+  z-index: 1;
+}
+
+.tab-btn.active:hover {
+  background: #fff;
+}
+
+.text-tools {
+  display: flex;
+  gap: 4px;
+}
+
+.editor-content {
+  position: relative;
+  min-height: 120px;
+}
+
+.editor-content textarea {
+  border: none;
+  border-radius: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  background: transparent;
+}
+
+.editor-content textarea:focus {
+  box-shadow: none;
+}
+
+.quote-preview {
+  padding: 12px;
+  min-height: 120px;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-y: auto;
+  word-break: break-word;
+  background: #fff;
+  color: var(--text-color);
+}
+
+.quote-preview b {
+  font-weight: bold;
+}
+
+.quote-preview i {
+  font-style: italic;
+}
+
+.quote-preview sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+}
+
+.quote-preview sup {
+  font-size: 0.75em;
+  vertical-align: super;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.tool-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.tool-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tool-btn:hover {
+  background: #fff;
+  color: var(--primary-color);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.tool-btn.active {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.tool-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-color);
+  margin: 0 2px;
+  align-self: center;
+}
+
+.style-select {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  font-size: 14px;
+  background: #fff;
 }
 
 .value-display {
@@ -414,10 +582,14 @@ textarea:focus {
 
 textarea {
   resize: vertical;
-  min-height: 120px; /* 优化：从 100px 增加到 120px，提供更好的输入体验 */
+  min-height: 120px; /* 默认高度 */
   line-height: 1.7; /* 优化：从 1.6 增加到 1.7，改善可读性 */
   font-family: inherit;
   padding: var(--spacing-md); /* 优化：统一使用间距变量 */
+}
+
+#book-title {
+  min-height: 60px;
 }
 
 input[type="text"]::placeholder,
@@ -1033,6 +1205,13 @@ input[type="range"]::-moz-range-track {
 .book-info .book {
   font-weight: 700;
   color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.book-info .author {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Seal Styles - 右下角定位 */

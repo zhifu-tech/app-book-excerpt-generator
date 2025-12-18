@@ -28,6 +28,10 @@ export class AppState {
     this.zoom = 1;
     /** @type {string[]} 导出格式列表 */
     this.exportFormats = ["png"];
+    /** @type {string} 印章字体 */
+    this.sealFont = "'Ma Shan Zheng', cursive";
+    /** @type {'left'|'center'|'right'} 文本对齐方式 */
+    this.textAlign = "justify";
   }
 
   /**

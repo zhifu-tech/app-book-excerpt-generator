@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;700&family=Zhi+Mang+Xing&family=Long+Cang&display=swap"
+      href="https://fonts.font.im/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;700&family=Noto+Serif+TC:wght@300;400;700&family=Zhi+Mang+Xing&family=Long+Cang&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
@@ -53,28 +53,52 @@
 
         <div class="controls-scroll">
           <div class="control-group">
-            <label for="quote-text">摘录内容</label>
-            <textarea
-              id="quote-text"
-              name="quote-text"
-              placeholder="在这里输入你喜欢的文字..."
-              rows="5"
-              aria-label="摘录内容输入框"
-            >
-生活不可能像你想象得那么好，但也不会像你想象得那么糟。</textarea
-            >
+            <label>摘录内容</label>
+            <div class="editor-group">
+              <div class="editor-tabs">
+                <div class="tab-triggers">
+                  <button type="button" class="tab-btn active" data-tab="write">编辑</button>
+                  <button type="button" class="tab-btn" data-tab="preview">预览</button>
+                </div>
+                <div class="text-tools">
+                  <button type="button" class="tool-btn" data-command="bold" title="加粗"><b>B</b></button>
+                  <button type="button" class="tool-btn" data-command="italic" title="斜体"><i>I</i></button>
+                  <button type="button" class="tool-btn" data-command="subscript" title="下标">X<sub>2</sub></button>
+                  <button type="button" class="tool-btn" data-command="superscript" title="上标">X<sup>2</sup></button>
+                  <div class="tool-divider"></div>
+                  <button type="button" class="tool-btn" data-align="left" title="左对齐">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 10H3M21 6H3M21 14H3M17 18H3"/></svg>
+                  </button>
+                  <button type="button" class="tool-btn" data-align="center" title="居中对齐">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10H6M21 6H3M21 14H3M18 18H6"/></svg>
+                  </button>
+                  <button type="button" class="tool-btn" data-align="right" title="右对齐">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10H7M21 6H3M21 14H3M21 18H7"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="editor-content">
+                <textarea
+                  id="quote-text"
+                  name="quote-text"
+                  placeholder="在这里输入你喜欢的文字..."
+                  rows="5"
+                  aria-label="摘录内容输入框"
+                >生活不可能像你想象得那么好，但也不会像你想象得那么糟。</textarea>
+                <div id="quote-preview" class="quote-preview hidden"></div>
+              </div>
+            </div>
           </div>
 
           <div class="control-row">
             <div class="control-group half">
               <label for="book-title">书名/出处</label>
-              <input
-                type="text"
+              <textarea
                 id="book-title"
                 name="book-title"
-                value="羊脂球"
+                rows="2"
                 aria-label="书名或出处"
-              />
+              >羊脂球</textarea>
             </div>
             <div class="control-group half">
               <label for="author-text">作者</label>
@@ -88,16 +112,28 @@
             </div>
           </div>
 
-          <div class="control-group">
-            <label for="seal-text">印章落款 (最多4字)</label>
-            <input
-              type="text"
-              id="seal-text"
-              name="seal-text"
-              value="随心书斋"
-              maxlength="4"
-              aria-label="印章落款，最多4个字"
-            />
+          <div class="control-row">
+            <div class="control-group half">
+              <label for="seal-text">印章落款 (最多4字)</label>
+              <input
+                type="text"
+                id="seal-text"
+                name="seal-text"
+                value="随心书斋"
+                maxlength="4"
+                aria-label="印章落款，最多4个字"
+              />
+            </div>
+            <div class="control-group half">
+              <label for="seal-font">印章字体</label>
+              <select id="seal-font" name="seal-font" class="style-select">
+                <option value="'Ma Shan Zheng', cursive">马善政 (毛笔)</option>
+                <option value="'Noto Serif TC', serif">思源宋体 (繁体)</option>
+                <option value="'Noto Serif SC', serif">思源宋体 (简体)</option>
+                <option value="'Zhi Mang Xing', cursive">志莽行书</option>
+                <option value="'Long Cang', cursive">龙苍行书</option>
+              </select>
+            </div>
           </div>
 
           <!-- 卡片组 -->
