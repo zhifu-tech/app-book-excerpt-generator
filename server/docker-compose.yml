@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  config-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: book-excerpt-config-server
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    volumes:
+      # 数据目录（持久化配置）
+      - ./data:/app/data
+      # 日志目录（持久化日志）
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3001}
+      - HOST=${HOST:-0.0.0.0}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - ENABLE_FILE_LOGGING=${ENABLE_FILE_LOGGING:-true}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${PORT:-3001}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

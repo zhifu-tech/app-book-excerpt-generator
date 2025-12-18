@@ -1,0 +1,34 @@
+# 依赖
+node_modules/
+
+# 数据文件
+data/config.json
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+.cache/
+
+# GitHub Actions
+# .github/workflows/ 应该被提交，不需要忽略
+
+

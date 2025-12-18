@@ -1,0 +1,52 @@
+# 依赖
+node_modules/
+npm-debug.log*
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# 文档
+README.md
+*.md
+!CHANGELOG.md
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 日志和数据（运行时生成）
+logs/
+data/config.json
+
+# 测试
+test/
+tests/
+*.test.js
+*.spec.js
+
+# 部署脚本（不需要在容器中）
+scripts/
+*.sh
+
+# PM2 配置（容器中不需要）
+ecosystem.config.cjs
+
+# Docker 文件
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+

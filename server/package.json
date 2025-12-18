@@ -1,0 +1,34 @@
+{
+  "name": "book-excerpt-generator-server",
+  "version": "0.3.0",
+  "description": "配置服务端 - 书摘卡片生成器",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "lint": "eslint src/ server.js",
+    "lint:fix": "eslint src/ server.js --fix",
+    "format": "prettier --write \"src/**/*.js\" \"*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"*.js\"",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop book-excerpt-server",
+    "pm2:restart": "pm2 restart book-excerpt-server",
+    "pm2:logs": "pm2 logs book-excerpt-server"
+  },
+  "keywords": [
+    "book-excerpt",
+    "config-server"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0"
+  }
+}
