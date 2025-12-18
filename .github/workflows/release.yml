@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          VERSION=${TAG_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG_NAME, Version: $VERSION"
+
+      - name: Generate release notes
+        id: changelog
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          TAG_MESSAGE=$(git tag -l --format='%(contents)' "$TAG_NAME" 2>/dev/null || echo "版本 $TAG_NAME 发布")
+          if [ -z "$TAG_MESSAGE" ]; then
+            TAG_MESSAGE="版本 $TAG_NAME 发布"
+          fi
+          {
+            echo "changelog<<EOF"
+            echo "$TAG_MESSAGE"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.tag_version.outputs.tag_name }}
+          body: |
+            ## 版本 ${{ steps.tag_version.outputs.version }}
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ---
+
+            **📦 安装方式**:
+            ```bash
+            npm install
+            ```
+
+            **🚀 本地开发**:
+            ```bash
+            # 使用 Python
+            python -m http.server 8000
+            
+            # 或使用 Node.js
+            npx serve .
+            ```
+
+            **📚 文档**:
+            - [README.md](README.md) - 使用说明
+            - [部署指南](docs/DEPLOY.md) - 服务器部署
+          draft: false
+          prerelease: ${{ contains(steps.tag_version.outputs.version, '-') || contains(steps.tag_version.outputs.version, 'alpha') || contains(steps.tag_version.outputs.version, 'beta') || contains(steps.tag_version.outputs.version, 'rc') }}
+          files: |
+            package.json
+            package-lock.json
+          token: ${{ secrets.GITHUB_TOKEN }}

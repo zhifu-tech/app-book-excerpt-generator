@@ -8,7 +8,7 @@
  * @type {Object}
  */
 export const APP_CONFIG = {
-  VERSION: "1.0.0",
+  VERSION: "1.0.1",
   THUMBNAIL_UPDATE_DELAY: 300,
   DOWNLOAD_DELAY: 300,
   DRAG_THRESHOLD: 5,
